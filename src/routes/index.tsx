@@ -296,8 +296,8 @@ function StudyTimetable() {
     wrap.style.height = naturalH + "px";
     const leftOffset = (window.innerWidth - naturalW * scale) / 2;
     const topOffset = (window.innerHeight - naturalH * scale) / 2;
-    wrap.style.left = Math.min(leftOffset, 0) + "px";
-    wrap.style.top = Math.min(topOffset, 0) + "px";
+    wrap.style.left = Math.max(leftOffset, 0) + "px";
+    wrap.style.top = Math.max(topOffset, 0) + "px";
   }, []);
   useEffect(() => {
     fitScreen();
