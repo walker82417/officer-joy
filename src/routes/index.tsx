@@ -290,14 +290,14 @@ function StudyTimetable() {
     wrap.style.height = "auto";
     const naturalH = app.offsetHeight;
     const naturalW = app.offsetWidth;
-    const scale = Math.max(window.innerWidth / naturalW, window.innerHeight / naturalH);
+    const scale = Math.min(window.innerWidth / naturalW, window.innerHeight / naturalH, 1);
     wrap.style.transform = `scale(${scale})`;
     wrap.style.width = naturalW + "px";
     wrap.style.height = naturalH + "px";
     const leftOffset = (window.innerWidth - naturalW * scale) / 2;
     const topOffset = (window.innerHeight - naturalH * scale) / 2;
-    wrap.style.left = Math.min(leftOffset, 0) + "px";
-    wrap.style.top = Math.min(topOffset, 0) + "px";
+    wrap.style.left = Math.max(leftOffset, 0) + "px";
+    wrap.style.top = Math.max(topOffset, 0) + "px";
   }, []);
   useEffect(() => {
     fitScreen();
@@ -444,7 +444,6 @@ function StudyTimetable() {
   };
 
   const runningRow = ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "running") || null;
-  const runningSt = runningRow ? sessions[runningRow.id] : null;
 
   const todayIdx = (now.getDay() + 6) % 7;
 
@@ -506,7 +505,7 @@ function StudyTimetable() {
           <div className="tt-examStrip">
             {(["ssc", "gate", "ese"] as ExamKey[]).map((key) => {
               const e = examDates[key];
-              const c = countdownParts(e.date);
+              const c = mounted ? countdownParts(e.date) : { d: 0, h: 0, m: 0, s: 0 };
               return (
                 <div
                   key={key}
@@ -514,7 +513,9 @@ function StudyTimetable() {
                   onClick={() => setEditingExam((cur) => (cur === key ? null : key))}
                 >
                   <div className="tt-num">
-                    {c.d}d : {String(c.h).padStart(2, "0")}h : {String(c.m).padStart(2, "0")}m : {String(c.s).padStart(2, "0")}s
+                    {mounted
+                      ? `${c.d}d : ${String(c.h).padStart(2, "0")}h : ${String(c.m).padStart(2, "0")}m : ${String(c.s).padStart(2, "0")}s`
+                      : "-- : -- : -- : --"}
                   </div>
                   <div className="tt-lbl">TO {e.label}</div>
                   <div className="tt-sub">target: {e.date} (tap to edit)</div>
@@ -542,6 +543,7 @@ function StudyTimetable() {
               );
             })}
           </div>
+
 
           {/* HEADER */}
           <div className="tt-header">
@@ -578,16 +580,8 @@ function StudyTimetable() {
             </div>
             <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
 
-            <div
-              className={`tt-currentSessionBar ${runningRow ? "active" : ""} ${
-                runningSt && runningSt.remaining <= 5 && runningRow ? "warn" : ""
-              }`}
-            >
-              <span>CURRENT SESSION</span>
-              <span>{runningRow ? `${runningRow.icon} ${runningRow.act}` : "No Active Study Session"}</span>
-              <span className="tt-timerBig">{runningSt ? fmtTime(runningSt.remaining) : ""}</span>
-            </div>
           </div>
+
 
           {/* MAIN GRID */}
           <div className="tt-mainGrid">
@@ -624,7 +618,7 @@ function StudyTimetable() {
                     const critical = st.status === "running" && st.remaining <= 5;
                     const disableStart = st.status === "running" || st.status === "completed";
                     const disablePause = st.status !== "running";
-                    const disableDone = st.status === "completed";
+                    const disableDone = st.status === "completed" || (st.status !== "notstarted" && st.remaining > 0);
                     return (
                       <tr key={r.id} className={rowClass}>
                         <td className="tt-rowIcon">{r.icon}</td>
@@ -673,73 +667,81 @@ function StudyTimetable() {
                 </div>
               </div>
 
-              {/* BOTTOM GRID */}
+              {/* BOTTOM GRID — 3 columns, stacked cards per column */}
               <div className="tt-bottomGrid">
-                <div className="tt-card">
-                  <h3>EXAM COVERAGE</h3>
-                  <div className="tt-cardBody">
-                    <ul className="tt-examCoverage">
-                      <li>UPSC ESE (Electrical)</li>
-                      <li>MPSC Engineering Services</li>
-                      <li>SSC JE</li>
-                      <li>RRB JE / SSE</li>
-                      <li>SSC CGL / CHSL / MTS</li>
-                      <li>SSC GD</li>
-                      <li>Railways NTPC / Group D &amp; Other Govt. Exams</li>
-                    </ul>
+                <div className="tt-col">
+                  <div className="tt-card">
+                    <h3>EXAM COVERAGE</h3>
+                    <div className="tt-cardBody">
+                      <ul className="tt-examCoverage">
+                        <li>UPSC ESE (Electrical)</li>
+                        <li>MPSC Engineering Services</li>
+                        <li>SSC JE</li>
+                        <li>RRB JE / SSE</li>
+                        <li>SSC CGL / CHSL / MTS</li>
+                        <li>SSC GD</li>
+                        <li>Railways NTPC / Group D &amp; Other Govt. Exams</li>
+                      </ul>
+                    </div>
                   </div>
-                </div>
-                <div className="tt-card">
-                  <h3>TODAY&apos;S PROGRESS</h3>
-                  <div className="tt-ringWrap">
-                    <canvas ref={ringRef} className="tt-ringCanvas" />
-                    <div className="tt-statList">
-                      <div>Hours: <b>{(doneToday.reduce((a, b) => a + b.durMin, 0) / 60).toFixed(1)}h</b></div>
-                      <div>Completed: <b>{doneToday.length}</b></div>
-                      <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
-                      <div>Streak: <b>{streak}</b>d 🔥</div>
+                  <div className="tt-card">
+                    <h3>TODAY&apos;S PROGRESS</h3>
+                    <div className="tt-ringWrap">
+                      <canvas ref={ringRef} className="tt-ringCanvas" />
+                      <div className="tt-statList">
+                        <div>Hours: <b>{(doneToday.reduce((a, b) => a + b.durMin, 0) / 60).toFixed(1)}h</b></div>
+                        <div>Completed: <b>{doneToday.length}</b></div>
+                        <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
+                        <div>Streak: <b>{streak}</b>d 🔥</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="tt-card">
-                  <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
-                  <div className="tt-cardBody">
-                    <table className="tt-rotationTable">
-                      <tbody>
-                        {ROTATION.map(([day, subj], i) => (
-                          <tr key={day} className={i === todayIdx ? "today" : ""}>
-                            <td><b>{day}</b></td>
-                            <td>{subj}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+
+                <div className="tt-col">
+                  <div className="tt-card">
+                    <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
+                    <div className="tt-cardBody">
+                      <table className="tt-rotationTable">
+                        <tbody>
+                          {ROTATION.map(([day, subj], i) => (
+                            <tr key={day} className={i === todayIdx ? "today" : ""}>
+                              <td><b>{day}</b></td>
+                              <td>{subj}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="tt-card">
+                    <h3>GOLDEN RULES</h3>
+                    <div className="tt-cardBody">
+                      <ul className="tt-goldenRules">
+                        <li>Be Consistent</li>
+                        <li>Follow the Plan</li>
+                        <li>Avoid Distractions</li>
+                        <li>Revise Regularly</li>
+                        <li>Take Mock Tests</li>
+                        <li>Analyze &amp; Improve</li>
+                        <li>Believe in Yourself</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
-                <div className="tt-card">
-                  <h3>GOLDEN RULES</h3>
-                  <div className="tt-cardBody">
-                    <ul className="tt-goldenRules">
-                      <li>Be Consistent</li>
-                      <li>Follow the Plan</li>
-                      <li>Avoid Distractions</li>
-                      <li>Revise Regularly</li>
-                      <li>Take Mock Tests</li>
-                      <li>Analyze &amp; Improve</li>
-                      <li>Believe in Yourself</li>
-                    </ul>
+
+                <div className="tt-col">
+                  <div className="tt-card tt-analyticsCard">
+                    <h3>ANALYTICS OVERVIEW</h3>
+                    <div className="tt-analyticsGrid">
+                      {analytics.cells.map(([l, v]) => (
+                        <div key={l}><b>{v}</b>{l}</div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="tt-card" style={{ marginTop: 8 }}>
-                <h3>ANALYTICS OVERVIEW</h3>
-                <div className="tt-analyticsGrid">
-                  {analytics.cells.map(([l, v]) => (
-                    <div key={l}><b>{v}</b>{l}</div>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* RIGHT COLUMN */}
@@ -803,6 +805,48 @@ function StudyTimetable() {
           </div>
         </div>
       </div>
+
+      {/* TIMER MODAL — appears while a focus session is running or paused */}
+      {(runningRow || ROWS.find((r) => isFocusRow(r) && (sessions[r.id]?.status === "paused") && sessions[r.id]?.remaining < r.dur * 60)) && (() => {
+        const active = runningRow || ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "paused" && sessions[r.id]?.remaining < r.dur * 60)!;
+        const st = sessions[active.id];
+        const done = st.remaining <= 0;
+        const critical = st.status === "running" && st.remaining <= 10 && st.remaining > 0;
+        return (
+          <div className={`tt-timerModal ${done ? "done" : ""} ${critical ? "warn" : ""}`}>
+            <div className="tt-tmHead">
+              <span className="tt-tmIcon">{active.icon}</span>
+              <span className="tt-tmTitle">{active.act}</span>
+              <span className={`tt-statusPill tt-st-${st.status}`}>{st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase()}</span>
+            </div>
+            <div className="tt-tmBig">{fmtTime(st.remaining)}</div>
+            <div className="tt-tmHint">
+              {done ? "✅ Time complete — you may Complete or Extend." : "Complete is locked until the timer finishes."}
+            </div>
+            <div className="tt-tmBtns">
+              {st.status === "running" ? (
+                <button className="tt-b-pause" onClick={() => pauseSession(active.id)}>⏸ Pause</button>
+              ) : (
+                <button className="tt-b-start" onClick={() => startSession(active.id)}>▶ Resume</button>
+              )}
+              <button
+                className="tt-b-ext"
+                onClick={(ev) => setExtendFor({ id: active.id, x: ev.clientX - 100, y: ev.clientY + 10 })}
+              >
+                ➕ Extend
+              </button>
+              <button
+                className="tt-b-done"
+                disabled={!done}
+                onClick={() => completeSession(active.id)}
+              >
+                ✓ Complete
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
 
       {/* EXTEND POPUP */}
       {extendFor && (
