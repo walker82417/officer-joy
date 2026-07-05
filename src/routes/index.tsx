@@ -668,73 +668,81 @@ function StudyTimetable() {
                 </div>
               </div>
 
-              {/* BOTTOM GRID */}
+              {/* BOTTOM GRID — 3 columns, stacked cards per column */}
               <div className="tt-bottomGrid">
-                <div className="tt-card">
-                  <h3>EXAM COVERAGE</h3>
-                  <div className="tt-cardBody">
-                    <ul className="tt-examCoverage">
-                      <li>UPSC ESE (Electrical)</li>
-                      <li>MPSC Engineering Services</li>
-                      <li>SSC JE</li>
-                      <li>RRB JE / SSE</li>
-                      <li>SSC CGL / CHSL / MTS</li>
-                      <li>SSC GD</li>
-                      <li>Railways NTPC / Group D &amp; Other Govt. Exams</li>
-                    </ul>
+                <div className="tt-col">
+                  <div className="tt-card">
+                    <h3>EXAM COVERAGE</h3>
+                    <div className="tt-cardBody">
+                      <ul className="tt-examCoverage">
+                        <li>UPSC ESE (Electrical)</li>
+                        <li>MPSC Engineering Services</li>
+                        <li>SSC JE</li>
+                        <li>RRB JE / SSE</li>
+                        <li>SSC CGL / CHSL / MTS</li>
+                        <li>SSC GD</li>
+                        <li>Railways NTPC / Group D &amp; Other Govt. Exams</li>
+                      </ul>
+                    </div>
                   </div>
-                </div>
-                <div className="tt-card">
-                  <h3>TODAY&apos;S PROGRESS</h3>
-                  <div className="tt-ringWrap">
-                    <canvas ref={ringRef} className="tt-ringCanvas" />
-                    <div className="tt-statList">
-                      <div>Hours: <b>{(doneToday.reduce((a, b) => a + b.durMin, 0) / 60).toFixed(1)}h</b></div>
-                      <div>Completed: <b>{doneToday.length}</b></div>
-                      <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
-                      <div>Streak: <b>{streak}</b>d 🔥</div>
+                  <div className="tt-card">
+                    <h3>TODAY&apos;S PROGRESS</h3>
+                    <div className="tt-ringWrap">
+                      <canvas ref={ringRef} className="tt-ringCanvas" />
+                      <div className="tt-statList">
+                        <div>Hours: <b>{(doneToday.reduce((a, b) => a + b.durMin, 0) / 60).toFixed(1)}h</b></div>
+                        <div>Completed: <b>{doneToday.length}</b></div>
+                        <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
+                        <div>Streak: <b>{streak}</b>d 🔥</div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div className="tt-card">
-                  <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
-                  <div className="tt-cardBody">
-                    <table className="tt-rotationTable">
-                      <tbody>
-                        {ROTATION.map(([day, subj], i) => (
-                          <tr key={day} className={i === todayIdx ? "today" : ""}>
-                            <td><b>{day}</b></td>
-                            <td>{subj}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+
+                <div className="tt-col">
+                  <div className="tt-card">
+                    <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
+                    <div className="tt-cardBody">
+                      <table className="tt-rotationTable">
+                        <tbody>
+                          {ROTATION.map(([day, subj], i) => (
+                            <tr key={day} className={i === todayIdx ? "today" : ""}>
+                              <td><b>{day}</b></td>
+                              <td>{subj}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="tt-card">
+                    <h3>GOLDEN RULES</h3>
+                    <div className="tt-cardBody">
+                      <ul className="tt-goldenRules">
+                        <li>Be Consistent</li>
+                        <li>Follow the Plan</li>
+                        <li>Avoid Distractions</li>
+                        <li>Revise Regularly</li>
+                        <li>Take Mock Tests</li>
+                        <li>Analyze &amp; Improve</li>
+                        <li>Believe in Yourself</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
-                <div className="tt-card">
-                  <h3>GOLDEN RULES</h3>
-                  <div className="tt-cardBody">
-                    <ul className="tt-goldenRules">
-                      <li>Be Consistent</li>
-                      <li>Follow the Plan</li>
-                      <li>Avoid Distractions</li>
-                      <li>Revise Regularly</li>
-                      <li>Take Mock Tests</li>
-                      <li>Analyze &amp; Improve</li>
-                      <li>Believe in Yourself</li>
-                    </ul>
+
+                <div className="tt-col">
+                  <div className="tt-card tt-analyticsCard">
+                    <h3>ANALYTICS OVERVIEW</h3>
+                    <div className="tt-analyticsGrid">
+                      {analytics.cells.map(([l, v]) => (
+                        <div key={l}><b>{v}</b>{l}</div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
 
-              <div className="tt-card" style={{ marginTop: 8 }}>
-                <h3>ANALYTICS OVERVIEW</h3>
-                <div className="tt-analyticsGrid">
-                  {analytics.cells.map(([l, v]) => (
-                    <div key={l}><b>{v}</b>{l}</div>
-                  ))}
-                </div>
-              </div>
             </div>
 
             {/* RIGHT COLUMN */}
