@@ -581,16 +581,8 @@ function StudyTimetable() {
             </div>
             <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
 
-            <div
-              className={`tt-currentSessionBar ${runningRow ? "active" : ""} ${
-                runningSt && runningSt.remaining <= 5 && runningRow ? "warn" : ""
-              }`}
-            >
-              <span>CURRENT SESSION</span>
-              <span>{runningRow ? `${runningRow.icon} ${runningRow.act}` : "No Active Study Session"}</span>
-              <span className="tt-timerBig">{runningSt ? fmtTime(runningSt.remaining) : ""}</span>
-            </div>
           </div>
+
 
           {/* MAIN GRID */}
           <div className="tt-mainGrid">
