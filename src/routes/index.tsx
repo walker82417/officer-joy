@@ -290,7 +290,7 @@ function StudyTimetable() {
     wrap.style.height = "auto";
     const naturalH = app.offsetHeight;
     const naturalW = app.offsetWidth;
-    const scale = Math.max(window.innerWidth / naturalW, window.innerHeight / naturalH);
+    const scale = Math.min(window.innerWidth / naturalW, window.innerHeight / naturalH, 1);
     wrap.style.transform = `scale(${scale})`;
     wrap.style.width = naturalW + "px";
     wrap.style.height = naturalH + "px";
