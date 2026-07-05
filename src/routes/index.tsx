@@ -619,7 +619,7 @@ function StudyTimetable() {
                     const critical = st.status === "running" && st.remaining <= 5;
                     const disableStart = st.status === "running" || st.status === "completed";
                     const disablePause = st.status !== "running";
-                    const disableDone = st.status === "completed";
+                    const disableDone = st.status === "completed" || (st.status !== "notstarted" && st.remaining > 0);
                     return (
                       <tr key={r.id} className={rowClass}>
                         <td className="tt-rowIcon">{r.icon}</td>
