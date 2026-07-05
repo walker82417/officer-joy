@@ -333,6 +333,12 @@
   flex:1 1 0;display:flex;align-items:center;justify-content:center;min-height:56px;
   background-size:cover;background-position:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
 }
+.tt-quoteCard::before{
+  content:"";position:absolute;inset:0;
+  background:linear-gradient(180deg,rgba(10,14,30,.35),rgba(10,14,30,.72));
+  z-index:1;
+}
+.tt-quoteCard span{ position:relative;z-index:2;text-shadow:0 1px 4px rgba(0,0,0,.6); }
 
 .tt-ringCanvas{ width:84px;height:84px;flex:0 0 auto; }
 
