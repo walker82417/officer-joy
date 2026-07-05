@@ -444,7 +444,6 @@ function StudyTimetable() {
   };
 
   const runningRow = ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "running") || null;
-  const runningSt = runningRow ? sessions[runningRow.id] : null;
 
   const todayIdx = (now.getDay() + 6) % 7;
 
