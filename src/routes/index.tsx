@@ -807,6 +807,48 @@ function StudyTimetable() {
         </div>
       </div>
 
+      {/* TIMER MODAL — appears while a focus session is running or paused */}
+      {(runningRow || ROWS.find((r) => isFocusRow(r) && (sessions[r.id]?.status === "paused") && sessions[r.id]?.remaining < r.dur * 60)) && (() => {
+        const active = runningRow || ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "paused" && sessions[r.id]?.remaining < r.dur * 60)!;
+        const st = sessions[active.id];
+        const done = st.remaining <= 0;
+        const critical = st.status === "running" && st.remaining <= 10 && st.remaining > 0;
+        return (
+          <div className={`tt-timerModal ${done ? "done" : ""} ${critical ? "warn" : ""}`}>
+            <div className="tt-tmHead">
+              <span className="tt-tmIcon">{active.icon}</span>
+              <span className="tt-tmTitle">{active.act}</span>
+              <span className={`tt-statusPill tt-st-${st.status}`}>{st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase()}</span>
+            </div>
+            <div className="tt-tmBig">{fmtTime(st.remaining)}</div>
+            <div className="tt-tmHint">
+              {done ? "✅ Time complete — you may Complete or Extend." : "Complete is locked until the timer finishes."}
+            </div>
+            <div className="tt-tmBtns">
+              {st.status === "running" ? (
+                <button className="tt-b-pause" onClick={() => pauseSession(active.id)}>⏸ Pause</button>
+              ) : (
+                <button className="tt-b-start" onClick={() => startSession(active.id)}>▶ Resume</button>
+              )}
+              <button
+                className="tt-b-ext"
+                onClick={(ev) => setExtendFor({ id: active.id, x: ev.clientX - 100, y: ev.clientY + 10 })}
+              >
+                ➕ Extend
+              </button>
+              <button
+                className="tt-b-done"
+                disabled={!done}
+                onClick={() => completeSession(active.id)}
+              >
+                ✓ Complete
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+
       {/* EXTEND POPUP */}
       {extendFor && (
         <>
