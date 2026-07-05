@@ -506,7 +506,7 @@ function StudyTimetable() {
           <div className="tt-examStrip">
             {(["ssc", "gate", "ese"] as ExamKey[]).map((key) => {
               const e = examDates[key];
-              const c = countdownParts(e.date);
+              const c = mounted ? countdownParts(e.date) : { d: 0, h: 0, m: 0, s: 0 };
               return (
                 <div
                   key={key}
@@ -514,7 +514,9 @@ function StudyTimetable() {
                   onClick={() => setEditingExam((cur) => (cur === key ? null : key))}
                 >
                   <div className="tt-num">
-                    {c.d}d : {String(c.h).padStart(2, "0")}h : {String(c.m).padStart(2, "0")}m : {String(c.s).padStart(2, "0")}s
+                    {mounted
+                      ? `${c.d}d : ${String(c.h).padStart(2, "0")}h : ${String(c.m).padStart(2, "0")}m : ${String(c.s).padStart(2, "0")}s`
+                      : "-- : -- : -- : --"}
                   </div>
                   <div className="tt-lbl">TO {e.label}</div>
                   <div className="tt-sub">target: {e.date} (tap to edit)</div>
@@ -542,6 +544,7 @@ function StudyTimetable() {
               );
             })}
           </div>
+
 
           {/* HEADER */}
           <div className="tt-header">
