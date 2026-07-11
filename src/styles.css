@@ -1042,6 +1042,53 @@
   text-transform: uppercase;
 }
 
+.tt-emailCard input[aria-label="Apps Script Web App URL"],
+.tt-emailCard input[aria-label="Apps Script shared secret"] {
+  width: 100%;
+  border: 1px solid var(--tt-line);
+  border-radius: 4px;
+  padding: 5px 7px;
+  font-size: 10px;
+  margin-bottom: 5px;
+}
+.tt-autoToggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--tt-navy);
+  margin-bottom: 4px;
+}
+.tt-autoStatus {
+  border-radius: 4px;
+  padding: 3px 6px;
+  margin-bottom: 5px;
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  background: #f5f6fa;
+  color: var(--tt-grey);
+}
+.tt-autoStatus.ready,
+.tt-autoStatus.synced {
+  background: #e8f7ee;
+  color: var(--tt-green);
+}
+.tt-autoStatus.syncing {
+  background: #fff7e8;
+  color: var(--tt-orange);
+}
+.tt-autoStatus.error {
+  background: #fdecee;
+  color: var(--tt-red);
+}
+.tt-emailActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+}
+
 .tt-footerQuote {
   margin-top: 4px;
   background: var(--tt-navy);
