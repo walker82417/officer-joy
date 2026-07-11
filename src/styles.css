@@ -168,25 +168,26 @@
   box-sizing: border-box;
 }
 .tt-root {
-  min-height: 100vh;
-  overflow: auto;
+  height: 100vh;
+  overflow: hidden;
   background: #e9eaf2;
   font-family: var(--tt-font-body);
   color: var(--tt-text);
 }
 .tt-scaleWrap {
-  min-height: 100vh;
+  height: 100vh;
   width: 100%;
   display: flex;
   align-items: stretch;
 }
 .tt-app {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   background: var(--tt-paper);
   border: 2px solid var(--tt-navy);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 /* Exam strip */
@@ -259,7 +260,7 @@
 /* Header */
 .tt-header {
   background: #fff;
-  padding: 6px 14px 3px 14px;
+  padding: 4px 12px 2px 12px;
   position: relative;
   border-bottom: 2px solid var(--tt-navy);
 }
@@ -287,7 +288,7 @@
 }
 .tt-titleBlock h1 {
   margin: 0;
-  font-size: 36px;
+  font-size: clamp(26px, 2.1vw, 34px);
   font-weight: 800;
   letter-spacing: 1px;
   color: var(--tt-navy);
@@ -301,7 +302,7 @@
   display: inline-block;
   padding: 2px 10px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: clamp(10px, 0.72vw, 11px);
   font-weight: 700;
 }
 .tt-examTags b.blue {
@@ -435,17 +436,19 @@
 
 /* Grid */
 .tt-mainGrid {
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 3.15fr) minmax(280px, 0.85fr);
-  gap: 12px;
-  padding: 8px 14px 0;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  padding: 6px 12px 0;
+  align-items: stretch;
 }
 .tt-leftCol {
   min-width: 0;
-  display: flex;
-  flex-direction: column;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
 }
 .tt-rightCol {
   min-width: 0;
@@ -454,7 +457,7 @@
 .tt-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 10.5px;
+  font-size: clamp(10px, 0.72vw, 11px);
   table-layout: fixed;
 }
 .tt-table thead th {
@@ -467,7 +470,7 @@
   letter-spacing: 0.5px;
 }
 .tt-table tbody td {
-  padding: 2px 6px;
+  padding: 2px 5px;
   border-bottom: 1px solid var(--tt-line);
   vertical-align: middle;
   line-height: 1.25;
@@ -642,15 +645,18 @@
 
 .tt-bottomGrid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px;
-  margin-top: 10px;
-  align-items: start;
+  grid-template-columns: 1.06fr 1.06fr 1fr 0.92fr;
+  gap: 8px;
+  margin-top: 8px;
+  min-height: 0;
+  align-items: stretch;
 }
 .tt-bottomGrid > .tt-col {
+  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 .tt-bottomGrid > .tt-col > .tt-card {
   flex: 0 0 auto;
@@ -660,14 +666,14 @@
   background: #fff;
   border: 1px solid var(--tt-line);
   border-radius: 6px;
-  padding: 7px 11px;
+  padding: 6px 10px;
   display: flex;
   flex-direction: column;
 }
 
 .tt-card h3 {
-  margin: 0 0 5px 0;
-  font-size: 11px;
+  margin: 0 0 4px 0;
+  font-size: clamp(10px, 0.75vw, 11px);
   color: var(--tt-navy);
   border-bottom: 1px solid var(--tt-line);
   padding-bottom: 3px;
@@ -1015,28 +1021,23 @@
 }
 
 .tt-footerQuote {
-  margin-top: 10px;
+  margin-top: 6px;
   background: var(--tt-navy);
   color: var(--tt-gold);
   text-align: center;
-  padding: 6px;
-  font-size: 11px;
+  padding: 5px;
+  font-size: clamp(10px, 0.75vw, 11px);
   font-weight: 800;
   letter-spacing: 0.4px;
   font-family: var(--tt-font-display);
 }
 
 @media (max-width: 1100px) {
-  .tt-mainGrid {
-    grid-template-columns: 1fr;
+  .tt-bottomGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .tt-rightCol.tt-motivPanel {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    height: auto;
-  }
-  .tt-rememberBox {
-    min-height: 100%;
+  .tt-root {
+    overflow: auto;
   }
 }
 
@@ -1044,7 +1045,7 @@
   .tt-examStrip,
   .tt-headerTop,
   .tt-bottomGrid,
-  .tt-rightCol.tt-motivPanel {
+  .tt-motivPanel {
     grid-template-columns: 1fr;
     display: grid;
   }
