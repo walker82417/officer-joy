@@ -165,7 +165,8 @@
 
 .tt-root, .tt-root *{ box-sizing:border-box; }
 .tt-root{
-  position:fixed;inset:0;overflow:hidden;
+  position:fixed;inset:0;overflow-x:hidden;overflow-y:auto;
+
   background:#e9eaf2;
   font-family:var(--tt-font-body);
   color:var(--tt-text);
@@ -273,9 +274,10 @@
 .tt-pendingItem button{ font-size:9px;border:none;background:var(--tt-orange);color:#fff;border-radius:3px;padding:2px 6px;cursor:pointer; }
 .tt-pendingEmpty{ font-size:10px;color:#999; }
 
-.tt-bottomGrid{ display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;align-items:stretch; }
+.tt-bottomGrid{ display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:10px;align-items:start; }
 .tt-bottomGrid > .tt-col{ display:flex;flex-direction:column;gap:10px; }
-.tt-bottomGrid > .tt-col > .tt-card{ flex:1 1 0;min-height:0; }
+.tt-bottomGrid > .tt-col > .tt-card{ flex:0 0 auto;overflow:hidden; }
+
 .tt-card{ background:#fff;border:1px solid var(--tt-line);border-radius:6px;padding:8px 12px;display:flex;flex-direction:column; }
 .tt-card h3{ margin:0 0 5px 0;font-size:11px;color:var(--tt-navy);border-bottom:1px solid var(--tt-line);padding-bottom:3px;font-family:var(--tt-font-display);letter-spacing:.3px; }
 .tt-cardBody{ flex:1;display:flex;flex-direction:column;justify-content:center;padding-top:2px; }
