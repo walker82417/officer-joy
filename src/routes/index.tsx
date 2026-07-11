@@ -673,6 +673,32 @@ function StudyTimetable() {
               <div className="tt-bottomGrid">
                 <div className="tt-col">
                   <div className="tt-card">
+                    <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
+                    <div className="tt-cardBody">
+                      <table className="tt-rotationTable">
+                        <tbody>
+                          {ROTATION.map(([day, subj], i) => (
+                            <tr key={day} className={i === todayIdx ? "today" : ""}>
+                              <td><b>{day}</b></td>
+                              <td>{subj}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="tt-card tt-analyticsCard">
+                    <h3>ANALYTICS OVERVIEW</h3>
+                    <div className="tt-analyticsGrid">
+                      {analytics.cells.map(([l, v]) => (
+                        <div key={l}><b>{v}</b>{l}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tt-col">
+                  <div className="tt-card">
                     <h3>EXAM COVERAGE</h3>
                     <div className="tt-cardBody">
                       <ul className="tt-examCoverage">
@@ -702,21 +728,6 @@ function StudyTimetable() {
 
                 <div className="tt-col">
                   <div className="tt-card">
-                    <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
-                    <div className="tt-cardBody">
-                      <table className="tt-rotationTable">
-                        <tbody>
-                          {ROTATION.map(([day, subj], i) => (
-                            <tr key={day} className={i === todayIdx ? "today" : ""}>
-                              <td><b>{day}</b></td>
-                              <td>{subj}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  <div className="tt-card">
                     <h3>GOLDEN RULES</h3>
                     <div className="tt-cardBody">
                       <ul className="tt-goldenRules">
@@ -731,18 +742,8 @@ function StudyTimetable() {
                     </div>
                   </div>
                 </div>
-
-                <div className="tt-col">
-                  <div className="tt-card tt-analyticsCard">
-                    <h3>ANALYTICS OVERVIEW</h3>
-                    <div className="tt-analyticsGrid">
-                      {analytics.cells.map(([l, v]) => (
-                        <div key={l}><b>{v}</b>{l}</div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
               </div>
+
 
             </div>
 
