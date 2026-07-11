@@ -20,23 +20,176 @@ type Row = {
 };
 
 const ROWS: Row[] = [
-  { id: 0, time: "6:00 – 6:15 AM", startMin: 360, dur: 15, act: "WAKE UP", focus: "Gratitude & Plan Your Day", cat: "life", icon: "☀️" },
-  { id: 1, time: "6:15 – 6:45 AM", startMin: 375, dur: 30, act: "EXERCISE / YOGA / WALK", focus: "Stay Fit, Stay Sharp", cat: "life", icon: "🏃" },
-  { id: 2, time: "6:45 – 7:15 AM", startMin: 405, dur: 30, act: "FRESHEN UP", focus: "Personal Care", cat: "life", icon: "🚿" },
-  { id: 3, time: "7:15 – 7:45 AM", startMin: 435, dur: 30, act: "BREAKFAST", focus: "Eat Healthy, Think Better", cat: "life", icon: "🥣" },
-  { id: 4, time: "7:45 – 10:15 AM", startMin: 465, dur: 150, act: "ELECTRICAL ENGINEERING (THEORY)", focus: "Core Subject – ESE / MPSC / SSC JE / RRB JE", cat: "technical", icon: "📖" },
-  { id: 5, time: "10:15 – 10:30 AM", startMin: 615, dur: 15, act: "SHORT BREAK", focus: "Tea / Break", cat: "break", icon: "☕" },
-  { id: 6, time: "10:30 – 1:00 PM", startMin: 630, dur: 150, act: "ELECTRICAL ENGINEERING (NUMERICALS)", focus: "Numericals + Problem Solving", cat: "technical", icon: "🧮" },
-  { id: 7, time: "1:00 – 2:00 PM", startMin: 780, dur: 60, act: "LUNCH & REST", focus: "Good Food, Good Mood", cat: "life", icon: "🍽️" },
-  { id: 8, time: "2:00 – 4:00 PM", startMin: 840, dur: 120, act: "PYQs & MCQs PRACTICE", focus: "ESE / SSC JE / RRB JE", cat: "technical", icon: "🎯" },
-  { id: 9, time: "4:00 – 4:30 PM", startMin: 960, dur: 30, act: "TEA BREAK", focus: "Short Break, Fresh Mind", cat: "break", icon: "☕" },
-  { id: 10, time: "4:30 – 5:30 PM", startMin: 990, dur: 60, act: "QUANTITATIVE APTITUDE", focus: "SSC / Railways / CGL", cat: "aptitude", icon: "Σ" },
-  { id: 11, time: "5:30 – 6:30 PM", startMin: 1050, dur: 60, act: "REASONING ABILITY", focus: "SSC / Railways / CGL", cat: "aptitude", icon: "🧠" },
-  { id: 12, time: "6:30 – 7:30 PM", startMin: 1110, dur: 60, act: "GENERAL STUDIES & CURRENT AFFAIRS", focus: "Polity, History, Geography, Economy, Science, CA", cat: "gs", icon: "🌐" },
-  { id: 13, time: "7:30 – 8:15 PM", startMin: 1170, dur: 45, act: "DINNER & FAMILY TIME", focus: "Take a Break, Stay Connected", cat: "life", icon: "👨‍👩‍👧" },
-  { id: 14, time: "8:15 – 9:15 PM", startMin: 1215, dur: 60, act: "ENGLISH", focus: "Grammar, Vocabulary, RC", cat: "gs", icon: "🔤" },
-  { id: 15, time: "9:15 – 10:00 PM", startMin: 1275, dur: 45, act: "REVISION & MOCK ANALYSIS", focus: "Mock Test / Error Analysis / Short Notes", cat: "technical", icon: "🔍" },
-  { id: 16, time: "10:00 PM", startMin: 1320, dur: 0, act: "SLEEP", focus: "Good Sleep, Better Tomorrow", cat: "life", icon: "🌙" },
+  {
+    id: 0,
+    time: "6:00 – 6:15 AM",
+    startMin: 360,
+    dur: 15,
+    act: "WAKE UP",
+    focus: "Gratitude & Plan Your Day",
+    cat: "life",
+    icon: "☀️",
+  },
+  {
+    id: 1,
+    time: "6:15 – 6:45 AM",
+    startMin: 375,
+    dur: 30,
+    act: "EXERCISE / YOGA / WALK",
+    focus: "Stay Fit, Stay Sharp",
+    cat: "life",
+    icon: "🏃",
+  },
+  {
+    id: 2,
+    time: "6:45 – 7:15 AM",
+    startMin: 405,
+    dur: 30,
+    act: "FRESHEN UP",
+    focus: "Personal Care",
+    cat: "life",
+    icon: "🚿",
+  },
+  {
+    id: 3,
+    time: "7:15 – 7:45 AM",
+    startMin: 435,
+    dur: 30,
+    act: "BREAKFAST",
+    focus: "Eat Healthy, Think Better",
+    cat: "life",
+    icon: "🥣",
+  },
+  {
+    id: 4,
+    time: "7:45 – 10:15 AM",
+    startMin: 465,
+    dur: 150,
+    act: "ELECTRICAL ENGINEERING (THEORY)",
+    focus: "Core Subject – ESE / MPSC / SSC JE / RRB JE",
+    cat: "technical",
+    icon: "📖",
+  },
+  {
+    id: 5,
+    time: "10:15 – 10:30 AM",
+    startMin: 615,
+    dur: 15,
+    act: "SHORT BREAK",
+    focus: "Tea / Break",
+    cat: "break",
+    icon: "☕",
+  },
+  {
+    id: 6,
+    time: "10:30 – 1:00 PM",
+    startMin: 630,
+    dur: 150,
+    act: "ELECTRICAL ENGINEERING (NUMERICALS)",
+    focus: "Numericals + Problem Solving",
+    cat: "technical",
+    icon: "🧮",
+  },
+  {
+    id: 7,
+    time: "1:00 – 2:00 PM",
+    startMin: 780,
+    dur: 60,
+    act: "LUNCH & REST",
+    focus: "Good Food, Good Mood",
+    cat: "life",
+    icon: "🍽️",
+  },
+  {
+    id: 8,
+    time: "2:00 – 4:00 PM",
+    startMin: 840,
+    dur: 120,
+    act: "PYQs & MCQs PRACTICE",
+    focus: "ESE / SSC JE / RRB JE",
+    cat: "technical",
+    icon: "🎯",
+  },
+  {
+    id: 9,
+    time: "4:00 – 4:30 PM",
+    startMin: 960,
+    dur: 30,
+    act: "TEA BREAK",
+    focus: "Short Break, Fresh Mind",
+    cat: "break",
+    icon: "☕",
+  },
+  {
+    id: 10,
+    time: "4:30 – 5:30 PM",
+    startMin: 990,
+    dur: 60,
+    act: "QUANTITATIVE APTITUDE",
+    focus: "SSC / Railways / CGL",
+    cat: "aptitude",
+    icon: "Σ",
+  },
+  {
+    id: 11,
+    time: "5:30 – 6:30 PM",
+    startMin: 1050,
+    dur: 60,
+    act: "REASONING ABILITY",
+    focus: "SSC / Railways / CGL",
+    cat: "aptitude",
+    icon: "🧠",
+  },
+  {
+    id: 12,
+    time: "6:30 – 7:30 PM",
+    startMin: 1110,
+    dur: 60,
+    act: "GENERAL STUDIES & CURRENT AFFAIRS",
+    focus: "Polity, History, Geography, Economy, Science, CA",
+    cat: "gs",
+    icon: "🌐",
+  },
+  {
+    id: 13,
+    time: "7:30 – 8:15 PM",
+    startMin: 1170,
+    dur: 45,
+    act: "DINNER & FAMILY TIME",
+    focus: "Take a Break, Stay Connected",
+    cat: "life",
+    icon: "👨‍👩‍👧",
+  },
+  {
+    id: 14,
+    time: "8:15 – 9:15 PM",
+    startMin: 1215,
+    dur: 60,
+    act: "ENGLISH",
+    focus: "Grammar, Vocabulary, RC",
+    cat: "gs",
+    icon: "🔤",
+  },
+  {
+    id: 15,
+    time: "9:15 – 10:00 PM",
+    startMin: 1275,
+    dur: 45,
+    act: "REVISION & MOCK ANALYSIS",
+    focus: "Mock Test / Error Analysis / Short Notes",
+    cat: "technical",
+    icon: "🔍",
+  },
+  {
+    id: 16,
+    time: "10:00 PM",
+    startMin: 1320,
+    dur: 0,
+    act: "SLEEP",
+    focus: "Good Sleep, Better Tomorrow",
+    cat: "life",
+    icon: "🌙",
+  },
 ];
 const isFocusRow = (r: Row) => r.cat === "technical" || r.cat === "aptitude" || r.cat === "gs";
 
@@ -77,7 +230,12 @@ const EXAMS_DEFAULT: Record<ExamKey, { label: string; date: string }> = {
 };
 
 type SessionStatus = "notstarted" | "running" | "paused" | "completed";
-type SessionRec = { status: SessionStatus; remaining: number; endTs: number | null; warned: boolean };
+type SessionRec = {
+  status: SessionStatus;
+  remaining: number;
+  endTs: number | null;
+  warned: boolean;
+};
 type CompletedLog = { date: string; rowId: number; cat: Row["cat"]; durMin: number; ts: number };
 
 /* =============================================================
@@ -163,8 +321,6 @@ function StudyTimetable() {
 
   const soundOnRef = useRef(true);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const scaleWrapRef = useRef<HTMLDivElement | null>(null);
-  const appRef = useRef<HTMLDivElement | null>(null);
   const ringRef = useRef<HTMLCanvasElement | null>(null);
 
   /* -- hydrate from localStorage after mount -- */
@@ -172,7 +328,8 @@ function StudyTimetable() {
     setExamDates(load("tt_examDates", EXAMS_DEFAULT));
     const s = load<Record<number, SessionRec>>("tt_sessions_" + todayKey(), initSessions());
     ROWS.forEach((r) => {
-      if (!s[r.id]) s[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false };
+      if (!s[r.id])
+        s[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false };
     });
     setSessions(s);
     const c = load<Record<string, boolean>>("tt_checklist_" + todayKey(), initChecklist());
@@ -189,39 +346,68 @@ function StudyTimetable() {
   }, []);
 
   /* -- persist -- */
-  useEffect(() => { if (mounted) save("tt_examDates", examDates); }, [examDates, mounted]);
-  useEffect(() => { if (mounted) save("tt_sessions_" + todayKey(), sessions); }, [sessions, mounted]);
-  useEffect(() => { if (mounted) save("tt_checklist_" + todayKey(), checklist); }, [checklist, mounted]);
-  useEffect(() => { if (mounted) save("tt_pending_" + todayKey(), pending); }, [pending, mounted]);
-  useEffect(() => { if (mounted) save("tt_heatmap", heatmapLog); }, [heatmapLog, mounted]);
-  useEffect(() => { if (mounted) save("tt_completedLog", completedLog); }, [completedLog, mounted]);
-  useEffect(() => { if (mounted) save("tt_shift_" + todayKey(), timeShift); }, [timeShift, mounted]);
+  useEffect(() => {
+    if (mounted) save("tt_examDates", examDates);
+  }, [examDates, mounted]);
+  useEffect(() => {
+    if (mounted) save("tt_sessions_" + todayKey(), sessions);
+  }, [sessions, mounted]);
+  useEffect(() => {
+    if (mounted) save("tt_checklist_" + todayKey(), checklist);
+  }, [checklist, mounted]);
+  useEffect(() => {
+    if (mounted) save("tt_pending_" + todayKey(), pending);
+  }, [pending, mounted]);
+  useEffect(() => {
+    if (mounted) save("tt_heatmap", heatmapLog);
+  }, [heatmapLog, mounted]);
+  useEffect(() => {
+    if (mounted) save("tt_completedLog", completedLog);
+  }, [completedLog, mounted]);
+  useEffect(() => {
+    if (mounted) save("tt_shift_" + todayKey(), timeShift);
+  }, [timeShift, mounted]);
 
   /* -- sound -- */
-  const playTone = useCallback((freq: number, duration: number, vol: number, type: OscillatorType = "sine") => {
-    if (!soundOnRef.current) return;
-    try {
-      if (!audioCtxRef.current) {
-        const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        audioCtxRef.current = new AC();
+  const playTone = useCallback(
+    (freq: number, duration: number, vol: number, type: OscillatorType = "sine") => {
+      if (!soundOnRef.current) return;
+      try {
+        if (!audioCtxRef.current) {
+          const AC =
+            window.AudioContext ||
+            (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+          audioCtxRef.current = new AC();
+        }
+        const ctx = audioCtxRef.current;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(0, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + duration + 0.02);
+      } catch {
+        /* ignore */
       }
-      const ctx = audioCtxRef.current;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = type;
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.03);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + duration + 0.02);
-    } catch { /* ignore */ }
-  }, []);
-  const playStartChime = useCallback(() => { playTone(523, 0.18, 0.12); setTimeout(() => playTone(659, 0.22, 0.12), 120); }, [playTone]);
-  const playCompleteChime = useCallback(() => { playTone(659, 0.16, 0.12); setTimeout(() => playTone(880, 0.28, 0.12), 140); }, [playTone]);
-  const playCountdownBlip = useCallback(() => { playTone(740, 0.1, 0.09); }, [playTone]);
+    },
+    [],
+  );
+  const playStartChime = useCallback(() => {
+    playTone(523, 0.18, 0.12);
+    setTimeout(() => playTone(659, 0.22, 0.12), 120);
+  }, [playTone]);
+  const playCompleteChime = useCallback(() => {
+    playTone(659, 0.16, 0.12);
+    setTimeout(() => playTone(880, 0.28, 0.12), 140);
+  }, [playTone]);
+  const playCountdownBlip = useCallback(() => {
+    playTone(740, 0.1, 0.09);
+  }, [playTone]);
 
   /* -- 1-second tick: countdown + timers + auto-complete -- */
   useEffect(() => {
@@ -280,34 +466,6 @@ function StudyTimetable() {
     return () => window.clearInterval(id);
   }, [sessions, timeShift, mounted]);
 
-  /* -- fit to screen -- */
-  const fitScreen = useCallback(() => {
-    const app = appRef.current;
-    const wrap = scaleWrapRef.current;
-    if (!app || !wrap) return;
-    wrap.style.transform = "scale(1)";
-    wrap.style.width = "auto";
-    wrap.style.height = "auto";
-    const naturalH = app.offsetHeight;
-    const naturalW = app.offsetWidth;
-    const scale = Math.min(window.innerWidth / naturalW, window.innerHeight / naturalH);
-    wrap.style.transform = `scale(${scale})`;
-    wrap.style.width = naturalW + "px";
-    wrap.style.height = naturalH + "px";
-    const leftOffset = (window.innerWidth - naturalW * scale) / 2;
-    wrap.style.left = Math.max(leftOffset, 0) + "px";
-    wrap.style.top = "0px";
-
-
-  }, []);
-  useEffect(() => {
-    fitScreen();
-    let t: number | undefined;
-    const onResize = () => { window.clearTimeout(t); t = window.setTimeout(fitScreen, 80); };
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [fitScreen, pending.length, mounted]);
-
   /* -- ring canvas render -- */
   const totalFocus = useMemo(() => ROWS.filter(isFocusRow).length, []);
   const doneToday = useMemo(
@@ -319,8 +477,10 @@ function StudyTimetable() {
     const d = new Date();
     while (true) {
       const key = d.toISOString().slice(0, 10);
-      if (heatmapLog[key] && heatmapLog[key] > 0) { s++; d.setDate(d.getDate() - 1); }
-      else break;
+      if (heatmapLog[key] && heatmapLog[key] > 0) {
+        s++;
+        d.setDate(d.getDate() - 1);
+      } else break;
     }
     return s;
   }, [heatmapLog]);
@@ -338,7 +498,10 @@ function StudyTimetable() {
     ctx.scale(dpr, dpr);
     const pct = totalFocus ? doneToday.length / totalFocus : 0;
     ctx.clearRect(0, 0, size, size);
-    const cx = size / 2, cy = size / 2, r = 34, lw = 12;
+    const cx = size / 2,
+      cy = size / 2,
+      r = 34,
+      lw = 12;
     ctx.lineWidth = lw;
     ctx.strokeStyle = "#e6e8f0";
     ctx.beginPath();
@@ -360,20 +523,28 @@ function StudyTimetable() {
   /* =========================================================
      ACTIONS
      ========================================================= */
-  const startSession = useCallback((id: number) => {
-    setSessions((prev) => {
-      const st = prev[id];
-      if (st.status === "notstarted" || st.status === "paused") {
-        playStartChime();
-        return {
-          ...prev,
-          [id]: { ...st, status: "running", endTs: Date.now() + st.remaining * 1000, warned: false },
-        };
-      }
-      return prev;
-    });
-    setPending((p) => p.filter((x) => x !== id));
-  }, [playStartChime]);
+  const startSession = useCallback(
+    (id: number) => {
+      setSessions((prev) => {
+        const st = prev[id];
+        if (st.status === "notstarted" || st.status === "paused") {
+          playStartChime();
+          return {
+            ...prev,
+            [id]: {
+              ...st,
+              status: "running",
+              endTs: Date.now() + st.remaining * 1000,
+              warned: false,
+            },
+          };
+        }
+        return prev;
+      });
+      setPending((p) => p.filter((x) => x !== id));
+    },
+    [playStartChime],
+  );
 
   const pauseSession = useCallback((id: number) => {
     setSessions((prev) => {
@@ -386,22 +557,28 @@ function StudyTimetable() {
     });
   }, []);
 
-  const completeSession = useCallback((id: number, auto = false) => {
-    const row = ROWS.find((r) => r.id === id);
-    if (!row) return;
-    setSessions((prev) => {
-      if (prev[id].status === "completed") return prev;
-      return { ...prev, [id]: { ...prev[id], status: "completed", remaining: 0, endTs: null } };
-    });
-    setPending((p) => p.filter((x) => x !== id));
-    setCompletedLog((prev) => {
-      if (prev.some((l) => l.rowId === id && l.date === todayKey())) return prev;
-      return [...prev, { date: todayKey(), rowId: id, cat: row.cat, durMin: row.dur, ts: Date.now() }];
-    });
-    setHeatmapLog((prev) => ({ ...prev, [todayKey()]: (prev[todayKey()] || 0) + 1 }));
-    playCompleteChime();
-    void auto;
-  }, [playCompleteChime]);
+  const completeSession = useCallback(
+    (id: number, auto = false) => {
+      const row = ROWS.find((r) => r.id === id);
+      if (!row) return;
+      setSessions((prev) => {
+        if (prev[id].status === "completed") return prev;
+        return { ...prev, [id]: { ...prev[id], status: "completed", remaining: 0, endTs: null } };
+      });
+      setPending((p) => p.filter((x) => x !== id));
+      setCompletedLog((prev) => {
+        if (prev.some((l) => l.rowId === id && l.date === todayKey())) return prev;
+        return [
+          ...prev,
+          { date: todayKey(), rowId: id, cat: row.cat, durMin: row.dur, ts: Date.now() },
+        ];
+      });
+      setHeatmapLog((prev) => ({ ...prev, [todayKey()]: (prev[todayKey()] || 0) + 1 }));
+      playCompleteChime();
+      void auto;
+    },
+    [playCompleteChime],
+  );
 
   const extendSession = useCallback((id: number, minutes: number) => {
     setSessions((prev) => {
@@ -435,7 +612,9 @@ function StudyTimetable() {
     ? `${greet}, Officer Rohan — ${now.toLocaleDateString("en-IN", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}`
     : "Good Morning, Officer Rohan";
   const clockLine = mounted ? now.toLocaleTimeString("en-IN", { hour12: true }) : "--:--:--";
-  const dayOfYear = Math.floor((now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000);
+  const dayOfYear = Math.floor(
+    (now.getTime() - new Date(now.getFullYear(), 0, 0).getTime()) / 86400000,
+  );
   const dailyQuote = QUOTES[dayOfYear % QUOTES.length];
 
   const displayedStart = (row: Row) => {
@@ -445,8 +624,8 @@ function StudyTimetable() {
     return row.time.split("–")[0].trim();
   };
 
-
-  const runningRow = ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "running") || null;
+  const runningRow =
+    ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "running") || null;
 
   const todayIdx = (now.getDay() + 6) % 7;
 
@@ -466,21 +645,33 @@ function StudyTimetable() {
   /* analytics */
   const analytics = useMemo(() => {
     const nowD = new Date();
-    const weekAgo = new Date(nowD); weekAgo.setDate(nowD.getDate() - 6);
-    const monthAgo = new Date(nowD); monthAgo.setDate(nowD.getDate() - 29);
-    const inRange = (dstr: string, from: Date) => new Date(dstr) >= new Date(from.toISOString().slice(0, 10));
+    const weekAgo = new Date(nowD);
+    weekAgo.setDate(nowD.getDate() - 6);
+    const monthAgo = new Date(nowD);
+    monthAgo.setDate(nowD.getDate() - 29);
+    const inRange = (dstr: string, from: Date) =>
+      new Date(dstr) >= new Date(from.toISOString().slice(0, 10));
     const todayLogs = completedLog.filter((l) => l.date === todayKey());
     const weekLogs = completedLog.filter((l) => inRange(l.date, weekAgo));
     const monthLogs = completedLog.filter((l) => inRange(l.date, monthAgo));
     const sum = (arr: CompletedLog[]) => arr.reduce((a, b) => a + b.durMin, 0);
-    const avgSession = completedLog.length ? Math.round(sum(completedLog) / completedLog.length) : 0;
+    const avgSession = completedLog.length
+      ? Math.round(sum(completedLog) / completedLog.length)
+      : 0;
     const longest = completedLog.length ? Math.max(...completedLog.map((l) => l.durMin)) : 0;
     const bySubject: Record<string, number> = {};
-    completedLog.forEach((l) => { const r = ROWS.find((x) => x.id === l.rowId); if (r) bySubject[r.act] = (bySubject[r.act] || 0) + l.durMin; });
-    const mostStudied = Object.keys(bySubject).sort((a, b) => bySubject[b] - bySubject[a])[0] || "—";
+    completedLog.forEach((l) => {
+      const r = ROWS.find((x) => x.id === l.rowId);
+      if (r) bySubject[r.act] = (bySubject[r.act] || 0) + l.durMin;
+    });
+    const mostStudied =
+      Object.keys(bySubject).sort((a, b) => bySubject[b] - bySubject[a])[0] || "—";
     const byDay: Record<string, number> = { ...heatmapLog };
     const bestDay = Object.keys(byDay).sort((a, b) => byDay[b] - byDay[a])[0] || "—";
-    const weakDay = Object.entries(byDay).filter(([, v]) => v > 0).sort((a, b) => a[1] - b[1])[0]?.[0] || "—";
+    const weakDay =
+      Object.entries(byDay)
+        .filter(([, v]) => v > 0)
+        .sort((a, b) => a[1] - b[1])[0]?.[0] || "—";
     return {
       cells: [
         ["TODAY", (sum(todayLogs) / 60).toFixed(1) + "h"],
@@ -502,8 +693,8 @@ function StudyTimetable() {
      ========================================================= */
   return (
     <div className="tt-root">
-      <div ref={scaleWrapRef} className="tt-scaleWrap">
-        <div ref={appRef} className="tt-app">
+      <div className="tt-scaleWrap">
+        <div className="tt-app">
           {/* EXAM STRIP */}
           <div className="tt-examStrip">
             {(["ssc", "gate", "ese"] as ExamKey[]).map((key) => {
@@ -528,13 +719,16 @@ function StudyTimetable() {
                         type="date"
                         defaultValue={e.date}
                         onKeyDown={(ev) => {
-                          if (ev.key === "Enter") saveExamDate(key, (ev.target as HTMLInputElement).value);
+                          if (ev.key === "Enter")
+                            saveExamDate(key, (ev.target as HTMLInputElement).value);
                         }}
                         id={`edit_${key}`}
                       />
                       <button
                         onClick={() => {
-                          const el = document.getElementById(`edit_${key}`) as HTMLInputElement | null;
+                          const el = document.getElementById(
+                            `edit_${key}`,
+                          ) as HTMLInputElement | null;
                           if (el) saveExamDate(key, el.value);
                         }}
                       >
@@ -547,31 +741,46 @@ function StudyTimetable() {
             })}
           </div>
 
-
           {/* HEADER */}
           <div className="tt-header">
             <div className="tt-headerTop">
               <div style={{ width: 150 }}>
                 <div className="tt-brandIcon">💡</div>
                 <div className="tt-rulesList">
-                  <div><span>✔</span>Plan Your Work</div>
-                  <div><span>✔</span>Work Your Plan</div>
-                  <div><span>✔</span>Stay Consistent</div>
-                  <div><span>✔</span>Success is Inevitable</div>
+                  <div>
+                    <span>✔</span>Plan Your Work
+                  </div>
+                  <div>
+                    <span>✔</span>Work Your Plan
+                  </div>
+                  <div>
+                    <span>✔</span>Stay Consistent
+                  </div>
+                  <div>
+                    <span>✔</span>Success is Inevitable
+                  </div>
                 </div>
               </div>
               <div className="tt-titleBlock">
                 <h1>UNIVERSAL STUDY TIMETABLE</h1>
                 <div className="tt-examTags">
-                  <b className="blue">UPSC ESE (ELECTRICAL)</b> | <b className="red">MPSC</b> | <b className="green">SSC JE</b> | <b className="purple">RRB JE</b> | <b className="orange">SSC CGL</b> | <b className="blue">RAILWAYS</b> &amp; OTHER GOVT. EXAMS
+                  <b className="blue">UPSC ESE (ELECTRICAL)</b> | <b className="red">MPSC</b> |{" "}
+                  <b className="green">SSC JE</b> | <b className="purple">RRB JE</b> |{" "}
+                  <b className="orange">SSC CGL</b> | <b className="blue">RAILWAYS</b> &amp; OTHER
+                  GOVT. EXAMS
                 </div>
-                <div className="tt-motto">★ ★ &nbsp; ONE DAY OR DAY ONE. YOU DECIDE. &nbsp; ★ ★</div>
+                <div className="tt-motto">
+                  ★ ★ &nbsp; ONE DAY OR DAY ONE. YOU DECIDE. &nbsp; ★ ★
+                </div>
               </div>
               <div style={{ width: 150 }}>
                 <div className="tt-targetBlock">
-                  🎯<br />
-                  <span className="t1">FOCUS</span><br />
-                  <span className="t2">DISCIPLINE</span><br />
+                  🎯
+                  <br />
+                  <span className="t1">FOCUS</span>
+                  <br />
+                  <span className="t2">DISCIPLINE</span>
+                  <br />
                   <span className="t3">SUCCESS</span>
                 </div>
               </div>
@@ -582,9 +791,7 @@ function StudyTimetable() {
               <div className="tt-clock">{clockLine}</div>
             </div>
             <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
-
           </div>
-
 
           {/* MAIN GRID */}
           <div className="tt-mainGrid">
@@ -608,40 +815,82 @@ function StudyTimetable() {
                         <tr key={r.id} className="tt-rowLIFE">
                           <td className="tt-rowIcon">{r.icon}</td>
                           <td>{displayedStart(r)}</td>
-                          <td><b>{r.act}</b></td>
+                          <td>
+                            <b>{r.act}</b>
+                          </td>
                           <td>{r.focus}</td>
-                          <td colSpan={3} style={{ textAlign: "center", color: "#bbb" }}>— not a focus session —</td>
+                          <td colSpan={3} style={{ textAlign: "center", color: "#bbb" }}>
+                            — not a focus session —
+                          </td>
                         </tr>
                       );
                     }
                     const st = sessions[r.id];
-                    const rowClass = st.status === "running" ? "tt-rowRUN" : st.status === "paused" ? "tt-rowPAUSE" : st.status === "completed" ? "tt-rowDONE" : "tt-rowNS";
+                    const rowClass =
+                      st.status === "running"
+                        ? "tt-rowRUN"
+                        : st.status === "paused"
+                          ? "tt-rowPAUSE"
+                          : st.status === "completed"
+                            ? "tt-rowDONE"
+                            : "tt-rowNS";
                     const pillClass = "tt-st-" + st.status;
-                    const pillLabel = st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase();
+                    const pillLabel =
+                      st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase();
                     const critical = st.status === "running" && st.remaining <= 5;
                     const disableStart = st.status === "running" || st.status === "completed";
                     const disablePause = st.status !== "running";
-                    const disableDone = st.status === "completed" || (st.status !== "notstarted" && st.remaining > 0);
+                    const disableDone =
+                      st.status === "completed" || (st.status !== "notstarted" && st.remaining > 0);
                     return (
                       <tr key={r.id} className={rowClass}>
                         <td className="tt-rowIcon">{r.icon}</td>
                         <td>{displayedStart(r)}</td>
-                        <td><b>{r.act}</b></td>
+                        <td>
+                          <b>{r.act}</b>
+                        </td>
                         <td>{r.focus}</td>
-                        <td><span className={`tt-statusPill ${pillClass}`}>{pillLabel}</span></td>
-                        <td className={`tt-rowTimer ${critical ? "critical" : ""}`}>{fmtTime(st.remaining)}</td>
+                        <td>
+                          <span className={`tt-statusPill ${pillClass}`}>{pillLabel}</span>
+                        </td>
+                        <td className={`tt-rowTimer ${critical ? "critical" : ""}`}>
+                          {fmtTime(st.remaining)}
+                        </td>
                         <td className="tt-actBtns">
-                          <button className="tt-b-start" title="Start" disabled={disableStart} onClick={() => startSession(r.id)}>▶</button>
-                          <button className="tt-b-pause" title="Pause" disabled={disablePause} onClick={() => pauseSession(r.id)}>⏸</button>
+                          <button
+                            className="tt-b-start"
+                            title="Start"
+                            disabled={disableStart}
+                            onClick={() => startSession(r.id)}
+                          >
+                            ▶
+                          </button>
+                          <button
+                            className="tt-b-pause"
+                            title="Pause"
+                            disabled={disablePause}
+                            onClick={() => pauseSession(r.id)}
+                          >
+                            ⏸
+                          </button>
                           <button
                             className="tt-b-ext"
                             title="Extend"
                             disabled={st.status === "completed"}
-                            onClick={(ev) => setExtendFor({ id: r.id, x: ev.clientX, y: ev.clientY })}
+                            onClick={(ev) =>
+                              setExtendFor({ id: r.id, x: ev.clientX, y: ev.clientY })
+                            }
                           >
                             ➕
                           </button>
-                          <button className="tt-b-done" title="Complete" disabled={disableDone} onClick={() => completeSession(r.id)}>✓</button>
+                          <button
+                            className="tt-b-done"
+                            title="Complete"
+                            disabled={disableDone}
+                            onClick={() => completeSession(r.id)}
+                          >
+                            ✓
+                          </button>
                         </td>
                       </tr>
                     );
@@ -680,7 +929,9 @@ function StudyTimetable() {
                         <tbody>
                           {ROTATION.map(([day, subj], i) => (
                             <tr key={day} className={i === todayIdx ? "today" : ""}>
-                              <td><b>{day}</b></td>
+                              <td>
+                                <b>{day}</b>
+                              </td>
                               <td>{subj}</td>
                             </tr>
                           ))}
@@ -692,7 +943,10 @@ function StudyTimetable() {
                     <h3>ANALYTICS OVERVIEW</h3>
                     <div className="tt-analyticsGrid">
                       {analytics.cells.map(([l, v]) => (
-                        <div key={l}><b>{v}</b>{l}</div>
+                        <div key={l}>
+                          <b>{v}</b>
+                          {l}
+                        </div>
                       ))}
                     </div>
                   </div>
@@ -718,10 +972,19 @@ function StudyTimetable() {
                     <div className="tt-ringWrap">
                       <canvas ref={ringRef} className="tt-ringCanvas" />
                       <div className="tt-statList">
-                        <div>Hours: <b>{(doneToday.reduce((a, b) => a + b.durMin, 0) / 60).toFixed(1)}h</b></div>
-                        <div>Completed: <b>{doneToday.length}</b></div>
-                        <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
-                        <div>Streak: <b>{streak}</b>d 🔥</div>
+                        <div>
+                          Hours:{" "}
+                          <b>{(doneToday.reduce((a, b) => a + b.durMin, 0) / 60).toFixed(1)}h</b>
+                        </div>
+                        <div>
+                          Completed: <b>{doneToday.length}</b>
+                        </div>
+                        <div>
+                          Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b>
+                        </div>
+                        <div>
+                          Streak: <b>{streak}</b>d 🔥
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -744,14 +1007,11 @@ function StudyTimetable() {
                   </div>
                 </div>
               </div>
-
-
             </div>
 
             {/* RIGHT COLUMN */}
             <div className="tt-rightCol tt-motivPanel">
               <div className="tt-card" style={{ flex: "0 0 auto" }}>
-
                 <h3>CONSISTENCY HEATMAP (12 weeks)</h3>
                 <div className="tt-heatmapWrap">
                   <div className="tt-heatmapGrid">
@@ -765,11 +1025,15 @@ function StudyTimetable() {
                     })}
                   </div>
                   <div className="tt-heatmapLegend">
-                    Less <span className="tt-hcell" /><span className="tt-hcell l1" /><span className="tt-hcell l2" /><span className="tt-hcell l3" /><span className="tt-hcell l4" /> More
+                    Less <span className="tt-hcell" />
+                    <span className="tt-hcell l1" />
+                    <span className="tt-hcell l2" />
+                    <span className="tt-hcell l3" />
+                    <span className="tt-hcell l4" /> More
                   </div>
                 </div>
               </div>
-              <div className="tt-card" style={{ flex: "0 0 auto", marginTop: 7 }}>
+              <div className="tt-card" style={{ flex: "0 0 auto" }}>
                 <h3>TODAY&apos;S CHECKLIST</h3>
                 <div className="tt-checklist">
                   {CHECKLIST_ITEMS.map((it) => (
@@ -785,8 +1049,10 @@ function StudyTimetable() {
                 </div>
               </div>
               <div className="tt-rememberBox">
-                REMEMBER<br />
-                CONSISTENCY + DISCIPLINE + PATIENCE<br />
+                REMEMBER
+                <br />
+                CONSISTENCY + DISCIPLINE + PATIENCE
+                <br />
                 =<br />
                 🏆 SUCCESS
               </div>
@@ -794,52 +1060,76 @@ function StudyTimetable() {
           </div>
 
           <div className="tt-footerQuote">
-            FOCUS ON YOUR GOAL. DON&apos;T LOOK IN ANY DIRECTION BUT AHEAD. &nbsp;|&nbsp; YOUR HARD WORK WILL DEFINITELY PAY OFF. ★ ★ ★
+            FOCUS ON YOUR GOAL. DON&apos;T LOOK IN ANY DIRECTION BUT AHEAD. &nbsp;|&nbsp; YOUR HARD
+            WORK WILL DEFINITELY PAY OFF. ★ ★ ★
           </div>
         </div>
       </div>
 
       {/* TIMER MODAL — appears while a focus session is running or paused */}
-      {(runningRow || ROWS.find((r) => isFocusRow(r) && (sessions[r.id]?.status === "paused") && sessions[r.id]?.remaining < r.dur * 60)) && (() => {
-        const active = runningRow || ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "paused" && sessions[r.id]?.remaining < r.dur * 60)!;
-        const st = sessions[active.id];
-        const done = st.remaining <= 0;
-        const critical = st.status === "running" && st.remaining <= 10 && st.remaining > 0;
-        return (
-          <div className={`tt-timerModal ${done ? "done" : ""} ${critical ? "warn" : ""}`}>
-            <div className="tt-tmHead">
-              <span className="tt-tmIcon">{active.icon}</span>
-              <span className="tt-tmTitle">{active.act}</span>
-              <span className={`tt-statusPill tt-st-${st.status}`}>{st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase()}</span>
+      {(runningRow ||
+        ROWS.find(
+          (r) =>
+            isFocusRow(r) &&
+            sessions[r.id]?.status === "paused" &&
+            sessions[r.id]?.remaining < r.dur * 60,
+        )) &&
+        (() => {
+          const active =
+            runningRow ||
+            ROWS.find(
+              (r) =>
+                isFocusRow(r) &&
+                sessions[r.id]?.status === "paused" &&
+                sessions[r.id]?.remaining < r.dur * 60,
+            )!;
+          const st = sessions[active.id];
+          const done = st.remaining <= 0;
+          const critical = st.status === "running" && st.remaining <= 10 && st.remaining > 0;
+          return (
+            <div className={`tt-timerModal ${done ? "done" : ""} ${critical ? "warn" : ""}`}>
+              <div className="tt-tmHead">
+                <span className="tt-tmIcon">{active.icon}</span>
+                <span className="tt-tmTitle">{active.act}</span>
+                <span className={`tt-statusPill tt-st-${st.status}`}>
+                  {st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase()}
+                </span>
+              </div>
+              <div className="tt-tmBig">{fmtTime(st.remaining)}</div>
+              <div className="tt-tmHint">
+                {done
+                  ? "✅ Time complete — you may Complete or Extend."
+                  : "Complete is locked until the timer finishes."}
+              </div>
+              <div className="tt-tmBtns">
+                {st.status === "running" ? (
+                  <button className="tt-b-pause" onClick={() => pauseSession(active.id)}>
+                    ⏸ Pause
+                  </button>
+                ) : (
+                  <button className="tt-b-start" onClick={() => startSession(active.id)}>
+                    ▶ Resume
+                  </button>
+                )}
+                <button
+                  className="tt-b-ext"
+                  onClick={(ev) =>
+                    setExtendFor({ id: active.id, x: ev.clientX - 100, y: ev.clientY + 10 })
+                  }
+                >
+                  ➕ Extend
+                </button>
+                <button
+                  className="tt-b-done"
+                  disabled={!done}
+                  onClick={() => completeSession(active.id)}
+                >
+                  ✓ Complete
+                </button>
+              </div>
             </div>
-            <div className="tt-tmBig">{fmtTime(st.remaining)}</div>
-            <div className="tt-tmHint">
-              {done ? "✅ Time complete — you may Complete or Extend." : "Complete is locked until the timer finishes."}
-            </div>
-            <div className="tt-tmBtns">
-              {st.status === "running" ? (
-                <button className="tt-b-pause" onClick={() => pauseSession(active.id)}>⏸ Pause</button>
-              ) : (
-                <button className="tt-b-start" onClick={() => startSession(active.id)}>▶ Resume</button>
-              )}
-              <button
-                className="tt-b-ext"
-                onClick={(ev) => setExtendFor({ id: active.id, x: ev.clientX - 100, y: ev.clientY + 10 })}
-              >
-                ➕ Extend
-              </button>
-              <button
-                className="tt-b-done"
-                disabled={!done}
-                onClick={() => completeSession(active.id)}
-              >
-                ✓ Complete
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
+          );
+        })()}
 
       {/* EXTEND POPUP */}
       {extendFor && (
@@ -852,7 +1142,10 @@ function StudyTimetable() {
             {[15, 30, 45, 60].map((m) => (
               <button
                 key={m}
-                onClick={() => { extendSession(extendFor.id, m); setExtendFor(null); }}
+                onClick={() => {
+                  extendSession(extendFor.id, m);
+                  setExtendFor(null);
+                }}
               >
                 +{m} min
               </button>
