@@ -438,10 +438,12 @@ function StudyTimetable() {
   const dailyQuote = QUOTES[dayOfYear % QUOTES.length];
 
   const displayedStart = (row: Row) => {
+    if (!mounted) return row.time.split("–")[0].trim();
     const nowMin = now.getHours() * 60 + now.getMinutes();
     if (row.startMin > nowMin) return minsToClock(row.startMin + timeShift);
     return row.time.split("–")[0].trim();
   };
+
 
   const runningRow = ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "running") || null;
 
