@@ -290,13 +290,14 @@ function StudyTimetable() {
     wrap.style.height = "auto";
     const naturalH = app.offsetHeight;
     const naturalW = app.offsetWidth;
-    const scale = Math.min(window.innerWidth / naturalW, 1);
+    const scale = Math.min(window.innerWidth / naturalW, window.innerHeight / naturalH);
     wrap.style.transform = `scale(${scale})`;
     wrap.style.width = naturalW + "px";
     wrap.style.height = naturalH + "px";
     const leftOffset = (window.innerWidth - naturalW * scale) / 2;
     wrap.style.left = Math.max(leftOffset, 0) + "px";
     wrap.style.top = "0px";
+
 
   }, []);
   useEffect(() => {
@@ -673,6 +674,32 @@ function StudyTimetable() {
               <div className="tt-bottomGrid">
                 <div className="tt-col">
                   <div className="tt-card">
+                    <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
+                    <div className="tt-cardBody">
+                      <table className="tt-rotationTable">
+                        <tbody>
+                          {ROTATION.map(([day, subj], i) => (
+                            <tr key={day} className={i === todayIdx ? "today" : ""}>
+                              <td><b>{day}</b></td>
+                              <td>{subj}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="tt-card tt-analyticsCard">
+                    <h3>ANALYTICS OVERVIEW</h3>
+                    <div className="tt-analyticsGrid">
+                      {analytics.cells.map(([l, v]) => (
+                        <div key={l}><b>{v}</b>{l}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tt-col">
+                  <div className="tt-card">
                     <h3>EXAM COVERAGE</h3>
                     <div className="tt-cardBody">
                       <ul className="tt-examCoverage">
@@ -702,21 +729,6 @@ function StudyTimetable() {
 
                 <div className="tt-col">
                   <div className="tt-card">
-                    <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
-                    <div className="tt-cardBody">
-                      <table className="tt-rotationTable">
-                        <tbody>
-                          {ROTATION.map(([day, subj], i) => (
-                            <tr key={day} className={i === todayIdx ? "today" : ""}>
-                              <td><b>{day}</b></td>
-                              <td>{subj}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  <div className="tt-card">
                     <h3>GOLDEN RULES</h3>
                     <div className="tt-cardBody">
                       <ul className="tt-goldenRules">
@@ -731,18 +743,8 @@ function StudyTimetable() {
                     </div>
                   </div>
                 </div>
-
-                <div className="tt-col">
-                  <div className="tt-card tt-analyticsCard">
-                    <h3>ANALYTICS OVERVIEW</h3>
-                    <div className="tt-analyticsGrid">
-                      {analytics.cells.map(([l, v]) => (
-                        <div key={l}><b>{v}</b>{l}</div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
               </div>
+
 
             </div>
 
