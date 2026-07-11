@@ -213,6 +213,19 @@ const CHECKLIST_ITEMS = [
   "Revision",
   "Sleep Before 10 PM",
 ];
+
+const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
+  0: "Wake Up",
+  1: "Exercise",
+  3: "Breakfast",
+  4: "Theory Completed",
+  6: "Numericals Completed",
+  8: "PYQs",
+  10: "Aptitude",
+  15: "Revision",
+  16: "Sleep Before 10 PM",
+};
+const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 const QUOTES = [
   "The harder you work for something, the greater you'll feel when you achieve it.",
   "Don't stop when you're tired. Stop when you're done.",
@@ -574,6 +587,10 @@ function StudyTimetable() {
         ];
       });
       setHeatmapLog((prev) => ({ ...prev, [todayKey()]: (prev[todayKey()] || 0) + 1 }));
+      const checklistItem = ROW_CHECKLIST_MAP[id];
+      if (checklistItem) {
+        setChecklist((prev) => ({ ...prev, [checklistItem]: true }));
+      }
       playCompleteChime();
       void auto;
     },
@@ -687,6 +704,88 @@ function StudyTimetable() {
       ] as [string, string][],
     };
   }, [completedLog, heatmapLog, streak]);
+
+  const buildMissionReport = useCallback(() => {
+    const todayLogs = completedLog.filter((l) => l.date === todayKey());
+    const completed = todayLogs.length;
+    const totalMinutes = todayLogs.reduce((sum, log) => sum + log.durMin, 0);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    const bySubject: Record<string, number> = {};
+
+    todayLogs.forEach((log) => {
+      const row = ROWS.find((r) => r.id === log.rowId);
+      if (row) bySubject[row.act] = (bySubject[row.act] || 0) + log.durMin;
+    });
+
+    const mostProductive =
+      Object.keys(bySubject).sort((a, b) => bySubject[b] - bySubject[a])[0] ||
+      "Mission not started yet";
+    const remainingRows = ROWS.filter(
+      (r) => isFocusRow(r) && !todayLogs.some((log) => log.rowId === r.id),
+    );
+    const tomorrowFocus = ROTATION[(todayIdx + 1) % ROTATION.length][1];
+
+    return {
+      subject: `Officer Rohan | Mission Report • ${new Date().toLocaleDateString("en-IN")}`,
+      body: [
+        "Dear Officer Rohan,",
+        "",
+        "Today's mission has concluded.",
+        "",
+        "Mission Summary",
+        `✅ Study Hours: ${hours}h ${minutes}m`,
+        `✅ Sessions Completed: ${completed} / ${totalFocus}`,
+        `🔥 Current Streak: ${streak} Days`,
+        `⚡ Most Productive Subject: ${mostProductive}`,
+        "",
+        "Mission Debrief",
+        completed > 0
+          ? `You completed ${completed} focused mission${completed === 1 ? "" : "s"} today. Keep this chain alive with one disciplined session tomorrow.`
+          : "No focus mission is completed yet. Open with one small session and build momentum before the day ends.",
+        remainingRows.length > 0
+          ? `Pending balance: ${remainingRows
+              .slice(0, 3)
+              .map((row) => row.act)
+              .join(", ")}.`
+          : "All focus missions are complete. Outstanding discipline today.",
+        "",
+        "Tomorrow's Mission",
+        `• ${tomorrowFocus}`,
+        "• Revision of weak areas",
+        "• Current Affairs",
+        "",
+        '"The future Officer Rohan is built by the discipline of today\'s Rohan."',
+        "",
+        "Until tomorrow, Officer Rohan.",
+        "Mission Control",
+      ].join("\n"),
+    };
+  }, [completedLog, streak, todayIdx, totalFocus]);
+
+  const openMissionReportEmail = useCallback(() => {
+    const report = buildMissionReport();
+    const mailto = `mailto:${EMAIL_REPORT_RECIPIENTS.join(",")}?subject=${encodeURIComponent(
+      report.subject,
+    )}&body=${encodeURIComponent(report.body)}`;
+    window.location.href = mailto;
+  }, [buildMissionReport]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const reportKey = `tt_report_sent_${todayKey()}`;
+    const checkReportTime = () => {
+      const current = new Date();
+      if (current.getHours() === 22 && current.getMinutes() === 15 && !load(reportKey, false)) {
+        save(reportKey, true);
+        openMissionReportEmail();
+      }
+    };
+
+    checkReportTime();
+    const id = window.setInterval(checkReportTime, 30000);
+    return () => window.clearInterval(id);
+  }, [mounted, openMissionReportEmail]);
 
   /* =========================================================
      RENDER
@@ -841,7 +940,9 @@ function StudyTimetable() {
                     const disableStart = st.status === "running" || st.status === "completed";
                     const disablePause = st.status !== "running";
                     const disableDone =
-                      st.status === "completed" || (st.status !== "notstarted" && st.remaining > 0);
+                      st.status === "completed" ||
+                      st.status === "notstarted" ||
+                      st.remaining > 10 * 60;
                     return (
                       <tr key={r.id} className={rowClass}>
                         <td className="tt-rowIcon">{r.icon}</td>
@@ -1005,56 +1106,62 @@ function StudyTimetable() {
                       </ul>
                     </div>
                   </div>
+                  <div className="tt-card tt-emailCard">
+                    <h3>MISSION EMAIL</h3>
+                    <p>10:15 PM debrief draft for both report emails.</p>
+                    <button onClick={openMissionReportEmail}>Prepare Report Email</button>
+                  </div>
                 </div>
-              </div>
-            </div>
 
-            {/* RIGHT COLUMN */}
-            <div className="tt-rightCol tt-motivPanel">
-              <div className="tt-card" style={{ flex: "0 0 auto" }}>
-                <h3>CONSISTENCY HEATMAP (12 weeks)</h3>
-                <div className="tt-heatmapWrap">
-                  <div className="tt-heatmapGrid">
-                    {heatmapCells.map(({ key, count }) => {
-                      let cls = "tt-hcell";
-                      if (count >= 1 && count < 3) cls += " l1";
-                      else if (count >= 3 && count < 6) cls += " l2";
-                      else if (count >= 6 && count < 9) cls += " l3";
-                      else if (count >= 9) cls += " l4";
-                      return <div key={key} className={cls} title={`${key}: ${count} sessions`} />;
-                    })}
+                <div className="tt-col tt-motivPanel">
+                  <div className="tt-card" style={{ flex: "0 0 auto" }}>
+                    <h3>CONSISTENCY HEATMAP (12 weeks)</h3>
+                    <div className="tt-heatmapWrap">
+                      <div className="tt-heatmapGrid">
+                        {heatmapCells.map(({ key, count }) => {
+                          let cls = "tt-hcell";
+                          if (count >= 1 && count < 3) cls += " l1";
+                          else if (count >= 3 && count < 6) cls += " l2";
+                          else if (count >= 6 && count < 9) cls += " l3";
+                          else if (count >= 9) cls += " l4";
+                          return (
+                            <div key={key} className={cls} title={`${key}: ${count} sessions`} />
+                          );
+                        })}
+                      </div>
+                      <div className="tt-heatmapLegend">
+                        Less <span className="tt-hcell" />
+                        <span className="tt-hcell l1" />
+                        <span className="tt-hcell l2" />
+                        <span className="tt-hcell l3" />
+                        <span className="tt-hcell l4" /> More
+                      </div>
+                    </div>
                   </div>
-                  <div className="tt-heatmapLegend">
-                    Less <span className="tt-hcell" />
-                    <span className="tt-hcell l1" />
-                    <span className="tt-hcell l2" />
-                    <span className="tt-hcell l3" />
-                    <span className="tt-hcell l4" /> More
+                  <div className="tt-card" style={{ flex: "0 0 auto" }}>
+                    <h3>TODAY&apos;S CHECKLIST</h3>
+                    <div className="tt-checklist">
+                      {CHECKLIST_ITEMS.map((it) => (
+                        <label key={it}>
+                          <input
+                            type="checkbox"
+                            checked={!!checklist[it]}
+                            onChange={(e) => toggleCheck(it, e.target.checked)}
+                          />
+                          {it}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="tt-rememberBox">
+                    REMEMBER
+                    <br />
+                    CONSISTENCY + DISCIPLINE + PATIENCE
+                    <br />
+                    =<br />
+                    🏆 SUCCESS
                   </div>
                 </div>
-              </div>
-              <div className="tt-card" style={{ flex: "0 0 auto" }}>
-                <h3>TODAY&apos;S CHECKLIST</h3>
-                <div className="tt-checklist">
-                  {CHECKLIST_ITEMS.map((it) => (
-                    <label key={it}>
-                      <input
-                        type="checkbox"
-                        checked={!!checklist[it]}
-                        onChange={(e) => toggleCheck(it, e.target.checked)}
-                      />
-                      {it}
-                    </label>
-                  ))}
-                </div>
-              </div>
-              <div className="tt-rememberBox">
-                REMEMBER
-                <br />
-                CONSISTENCY + DISCIPLINE + PATIENCE
-                <br />
-                =<br />
-                🏆 SUCCESS
               </div>
             </div>
           </div>
@@ -1099,7 +1206,7 @@ function StudyTimetable() {
               <div className="tt-tmHint">
                 {done
                   ? "✅ Time complete — you may Complete or Extend."
-                  : "Complete is locked until the timer finishes."}
+                  : "Complete unlocks in the final 10 minutes of each task."}
               </div>
               <div className="tt-tmBtns">
                 {st.status === "running" ? (
@@ -1121,7 +1228,7 @@ function StudyTimetable() {
                 </button>
                 <button
                   className="tt-b-done"
-                  disabled={!done}
+                  disabled={st.remaining > 10 * 60}
                   onClick={() => completeSession(active.id)}
                 >
                   ✓ Complete
