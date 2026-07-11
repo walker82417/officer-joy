@@ -165,7 +165,8 @@
 
 .tt-root, .tt-root *{ box-sizing:border-box; }
 .tt-root{
-  position:fixed;inset:0;overflow-x:hidden;overflow-y:auto;
+  position:fixed;inset:0;overflow:hidden;
+
 
   background:#e9eaf2;
   font-family:var(--tt-font-body);

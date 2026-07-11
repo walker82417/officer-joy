@@ -290,13 +290,14 @@ function StudyTimetable() {
     wrap.style.height = "auto";
     const naturalH = app.offsetHeight;
     const naturalW = app.offsetWidth;
-    const scale = Math.min(window.innerWidth / naturalW, 1);
+    const scale = Math.min(window.innerWidth / naturalW, window.innerHeight / naturalH);
     wrap.style.transform = `scale(${scale})`;
     wrap.style.width = naturalW + "px";
     wrap.style.height = naturalH + "px";
     const leftOffset = (window.innerWidth - naturalW * scale) / 2;
     wrap.style.left = Math.max(leftOffset, 0) + "px";
     wrap.style.top = "0px";
+
 
   }, []);
   useEffect(() => {
