@@ -225,6 +225,7 @@ const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
   15: "Revision",
   16: "Sleep Before 10 PM",
 };
+const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 const QUOTES = [
   "The harder you work for something, the greater you'll feel when you achieve it.",
   "Don't stop when you're tired. Stop when you're done.",
@@ -704,6 +705,88 @@ function StudyTimetable() {
     };
   }, [completedLog, heatmapLog, streak]);
 
+  const buildMissionReport = useCallback(() => {
+    const todayLogs = completedLog.filter((l) => l.date === todayKey());
+    const completed = todayLogs.length;
+    const totalMinutes = todayLogs.reduce((sum, log) => sum + log.durMin, 0);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    const bySubject: Record<string, number> = {};
+
+    todayLogs.forEach((log) => {
+      const row = ROWS.find((r) => r.id === log.rowId);
+      if (row) bySubject[row.act] = (bySubject[row.act] || 0) + log.durMin;
+    });
+
+    const mostProductive =
+      Object.keys(bySubject).sort((a, b) => bySubject[b] - bySubject[a])[0] ||
+      "Mission not started yet";
+    const remainingRows = ROWS.filter(
+      (r) => isFocusRow(r) && !todayLogs.some((log) => log.rowId === r.id),
+    );
+    const tomorrowFocus = ROTATION[(todayIdx + 1) % ROTATION.length][1];
+
+    return {
+      subject: `Officer Rohan | Mission Report • ${new Date().toLocaleDateString("en-IN")}`,
+      body: [
+        "Dear Officer Rohan,",
+        "",
+        "Today's mission has concluded.",
+        "",
+        "Mission Summary",
+        `✅ Study Hours: ${hours}h ${minutes}m`,
+        `✅ Sessions Completed: ${completed} / ${totalFocus}`,
+        `🔥 Current Streak: ${streak} Days`,
+        `⚡ Most Productive Subject: ${mostProductive}`,
+        "",
+        "Mission Debrief",
+        completed > 0
+          ? `You completed ${completed} focused mission${completed === 1 ? "" : "s"} today. Keep this chain alive with one disciplined session tomorrow.`
+          : "No focus mission is completed yet. Open with one small session and build momentum before the day ends.",
+        remainingRows.length > 0
+          ? `Pending balance: ${remainingRows
+              .slice(0, 3)
+              .map((row) => row.act)
+              .join(", ")}.`
+          : "All focus missions are complete. Outstanding discipline today.",
+        "",
+        "Tomorrow's Mission",
+        `• ${tomorrowFocus}`,
+        "• Revision of weak areas",
+        "• Current Affairs",
+        "",
+        '"The future Officer Rohan is built by the discipline of today\'s Rohan."',
+        "",
+        "Until tomorrow, Officer Rohan.",
+        "Mission Control",
+      ].join("\n"),
+    };
+  }, [completedLog, streak, todayIdx, totalFocus]);
+
+  const openMissionReportEmail = useCallback(() => {
+    const report = buildMissionReport();
+    const mailto = `mailto:${EMAIL_REPORT_RECIPIENTS.join(",")}?subject=${encodeURIComponent(
+      report.subject,
+    )}&body=${encodeURIComponent(report.body)}`;
+    window.location.href = mailto;
+  }, [buildMissionReport]);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const reportKey = `tt_report_sent_${todayKey()}`;
+    const checkReportTime = () => {
+      const current = new Date();
+      if (current.getHours() === 22 && current.getMinutes() === 15 && !load(reportKey, false)) {
+        save(reportKey, true);
+        openMissionReportEmail();
+      }
+    };
+
+    checkReportTime();
+    const id = window.setInterval(checkReportTime, 30000);
+    return () => window.clearInterval(id);
+  }, [mounted, openMissionReportEmail]);
+
   /* =========================================================
      RENDER
      ========================================================= */
@@ -1022,6 +1105,11 @@ function StudyTimetable() {
                         <li>Believe in Yourself</li>
                       </ul>
                     </div>
+                  </div>
+                  <div className="tt-card tt-emailCard">
+                    <h3>MISSION EMAIL</h3>
+                    <p>10:15 PM debrief draft for both report emails.</p>
+                    <button onClick={openMissionReportEmail}>Prepare Report Email</button>
                   </div>
                 </div>
 

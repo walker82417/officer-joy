@@ -197,7 +197,7 @@
 .tt-examBox {
   flex: 1;
   color: #fff;
-  padding: 6px 10px;
+  padding: 4px 10px;
   text-align: center;
   cursor: pointer;
   position: relative;
@@ -209,7 +209,7 @@
 }
 .tt-examBox .tt-num {
   font-family: var(--tt-font-display);
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -222,7 +222,7 @@
   margin-top: 1px;
 }
 .tt-examBox .tt-sub {
-  font-size: 8.5px;
+  font-size: 8px;
   opacity: 0.85;
 }
 .tt-examBox.ssc {
@@ -260,7 +260,7 @@
 /* Header */
 .tt-header {
   background: #fff;
-  padding: 4px 12px 2px 12px;
+  padding: 3px 12px 1px 12px;
   position: relative;
   border-bottom: 2px solid var(--tt-navy);
 }
@@ -270,7 +270,7 @@
   gap: 14px;
 }
 .tt-brandIcon {
-  font-size: 30px;
+  font-size: 24px;
 }
 .tt-rulesList {
   font-size: 10px;
@@ -288,7 +288,7 @@
 }
 .tt-titleBlock h1 {
   margin: 0;
-  font-size: clamp(26px, 2.1vw, 34px);
+  font-size: clamp(24px, 1.9vw, 30px);
   font-weight: 800;
   letter-spacing: 1px;
   color: var(--tt-navy);
@@ -321,7 +321,7 @@
   color: #ffbd7a;
 }
 .tt-motto {
-  margin-top: 4px;
+  margin-top: 3px;
   background: #0e1338;
   color: var(--tt-gold);
   font-weight: 800;
@@ -354,9 +354,9 @@
   align-items: center;
   background: var(--tt-navy);
   color: #fff;
-  padding: 4px 14px;
+  padding: 3px 14px;
   font-size: 11px;
-  margin-top: 6px;
+  margin-top: 4px;
   border-radius: 3px;
 }
 .tt-greet {
@@ -374,7 +374,7 @@
   font-size: 10.5px;
   font-style: italic;
   color: #333;
-  padding: 3px 0;
+  padding: 2px 0;
   border-bottom: 1px dashed var(--tt-line);
 }
 
@@ -440,8 +440,8 @@
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-  padding: 6px 12px 0;
+  gap: 6px;
+  padding: 5px 12px 0;
   align-items: stretch;
 }
 .tt-leftCol {
@@ -449,6 +449,7 @@
   min-height: 0;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
 }
 .tt-rightCol {
   min-width: 0;
@@ -463,14 +464,14 @@
 .tt-table thead th {
   background: var(--tt-navy);
   color: #fff;
-  padding: 3px 6px;
+  padding: 2px 6px;
   text-align: left;
   font-size: 10px;
   font-family: var(--tt-font-display);
   letter-spacing: 0.5px;
 }
 .tt-table tbody td {
-  padding: 2px 5px;
+  padding: 1px 5px;
   border-bottom: 1px solid var(--tt-line);
   vertical-align: middle;
   line-height: 1.25;
@@ -590,7 +591,7 @@
   display: block;
   width: 100%;
   margin: 2px 0;
-  padding: 3px 6px;
+  padding: 2px 6px;
   border: 1px solid var(--tt-line);
   background: #f5f6fa;
   border-radius: 4px;
@@ -602,11 +603,11 @@
 }
 
 .tt-pendingBox {
-  margin-top: 8px;
+  margin-top: 6px;
   background: #fff7e8;
   border: 1px solid var(--tt-orange);
   border-radius: 5px;
-  padding: 6px 10px;
+  padding: 4px 10px;
 }
 .tt-pendingBox h3 {
   margin: 0 0 4px 0;
@@ -645,18 +646,19 @@
 
 .tt-bottomGrid {
   display: grid;
-  grid-template-columns: 1.06fr 1.06fr 1fr 0.92fr;
+  grid-template-columns: 1.08fr 1.08fr 1fr 1fr;
   gap: 8px;
-  margin-top: 8px;
+  margin-top: 6px;
   min-height: 0;
   align-items: stretch;
+  overflow: hidden;
 }
 .tt-bottomGrid > .tt-col {
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 7px;
+  gap: 6px;
 }
 .tt-bottomGrid > .tt-col > .tt-card {
   flex: 0 0 auto;
@@ -666,7 +668,7 @@
   background: #fff;
   border: 1px solid var(--tt-line);
   border-radius: 6px;
-  padding: 6px 10px;
+  padding: 5px 9px;
   display: flex;
   flex-direction: column;
 }
@@ -743,13 +745,13 @@
   padding: 4px 0;
 }
 .tt-ringCanvas {
-  width: 84px;
-  height: 84px;
+  width: 70px;
+  height: 70px;
   flex: 0 0 auto;
 }
 .tt-statList {
-  font-size: 12px;
-  line-height: 1.7;
+  font-size: 11px;
+  line-height: 1.45;
 }
 .tt-statList b {
   color: var(--tt-navy2);
@@ -926,14 +928,14 @@
 }
 
 .tt-ringCanvas {
-  width: 84px;
-  height: 84px;
+  width: 70px;
+  height: 70px;
   flex: 0 0 auto;
 }
 
 .tt-heatmapGrid {
   display: grid;
-  grid-template-rows: repeat(7, 11px);
+  grid-template-rows: repeat(7, 9px);
   grid-auto-flow: column;
   gap: 2px;
 }
@@ -953,8 +955,8 @@
   color: var(--tt-grey);
 }
 .tt-hcell {
-  width: 11px;
-  height: 11px;
+  width: 9px;
+  height: 9px;
   border-radius: 2px;
   background: #e6e8f0;
 }
@@ -981,8 +983,8 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 11.5px;
-  margin: 2px 0;
+  font-size: 10.5px;
+  margin: 1px 0;
 }
 .tt-checklist input[type="checkbox"] {
   width: 13px;
@@ -1017,15 +1019,35 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 72px;
+  min-height: 48px;
+}
+
+.tt-emailCard p {
+  margin: 0 0 6px;
+  color: var(--tt-grey);
+  font-size: 10px;
+  line-height: 1.3;
+}
+.tt-emailCard button {
+  border: none;
+  border-radius: 4px;
+  background: var(--tt-navy);
+  color: var(--tt-gold);
+  cursor: pointer;
+  font-family: var(--tt-font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  padding: 5px 8px;
+  text-transform: uppercase;
 }
 
 .tt-footerQuote {
-  margin-top: 6px;
+  margin-top: 4px;
   background: var(--tt-navy);
   color: var(--tt-gold);
   text-align: center;
-  padding: 5px;
+  padding: 4px;
   font-size: clamp(10px, 0.75vw, 11px);
   font-weight: 800;
   letter-spacing: 0.4px;
