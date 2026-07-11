@@ -748,19 +748,8 @@ function StudyTimetable() {
 
             {/* RIGHT COLUMN */}
             <div className="tt-rightCol tt-motivPanel">
-              <h3>✦ Motivation for Champions ✦</h3>
-              {[
-                { cls: "tt-qc1", text: "The harder you work for something, the greater you'll feel when you achieve it." },
-                { cls: "tt-qc2", text: "Don't stop when you're tired. Stop when you're done." },
-                { cls: "tt-qc3", text: "Discipline today, success tomorrow." },
-                { cls: "tt-qc4", text: "Small daily improvements are the key to stunning results." },
-                { cls: "tt-qc5", text: "Your future is created by what you do today, not tomorrow." },
-              ].map((q) => (
-                <div key={q.cls} className={`tt-quoteCard ${q.cls}`}>
-                  <span>&ldquo;{q.text}&rdquo;</span>
-                </div>
-              ))}
-              <div className="tt-card" style={{ flex: "0 0 auto", marginTop: 2 }}>
+              <div className="tt-card" style={{ flex: "0 0 auto" }}>
+
                 <h3>CONSISTENCY HEATMAP (12 weeks)</h3>
                 <div className="tt-heatmapWrap">
                   <div className="tt-heatmapGrid">
