@@ -27,16 +27,17 @@ The script will add header rows automatically when it first writes data.
 2. Go to **Extensions → Apps Script**.
 3. Paste `Code.gs` into the Apps Script editor.
 4. Update `REPORT_RECIPIENTS` in `Code.gs`.
-5. Deploy as **Web app**.
-6. Set access to **Anyone with the link** so the website can post events.
-7. Copy the Web App URL.
-8. Paste it into the website's **Zero-cost Auto Email** card.
-9. Enable auto sync and click **Sync Snapshot**.
-10. In Apps Script, add time-driven triggers for:
+5. Replace `SHARED_SECRET` with a long private random value, for example 32+ mixed characters.
+6. Deploy as **Web app**.
+7. Set access to **Anyone with the link** so the website can post events.
+8. Copy the Web App URL.
+9. Paste the Web App URL and the same shared secret into the website's **Zero-cost Auto Email** card.
+10. Enable auto sync and click **Sync Snapshot**.
+11. In Apps Script, add time-driven triggers for:
     - `sendDailyReport`
     - `sendWeeklyReport`
     - `sendMonthlyReport`
 
 ## Cost
 
-This path avoids Firebase Blaze, paid SMTP, paid email APIs, and paid databases. It uses only Google Sheets, Apps Script triggers, and MailApp/Gmail quotas.
+This path avoids Firebase Blaze, paid SMTP, paid email APIs, and paid databases. It uses only Google Sheets, Apps Script triggers, and MailApp/Gmail quotas. The Web App URL is public-by-link, so the shared secret gate is required; rotate/redeploy the Web App URL if it is accidentally shared.

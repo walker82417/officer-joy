@@ -9,6 +9,8 @@
 const REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 const OWNER_NAME = "Officer Rohan";
 const TIMEZONE = "Asia/Kolkata";
+// Change this before deploying. It must match the private secret saved in the website.
+const SHARED_SECRET = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET";
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -16,6 +18,13 @@ function doPost(e) {
   try {
     const raw = e && e.postData && e.postData.contents ? e.postData.contents : "{}";
     const event = JSON.parse(raw);
+    if (!SHARED_SECRET || SHARED_SECRET === "CHANGE_ME_TO_A_LONG_RANDOM_SECRET") {
+      throw new Error("Set SHARED_SECRET before deploying the web app.");
+    }
+    if (event.secret !== SHARED_SECRET) {
+      throw new Error("Unauthorized automation request.");
+    }
+    delete event.secret;
     appendEvent_(event);
     return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(
       ContentService.MimeType.JSON,

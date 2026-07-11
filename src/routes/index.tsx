@@ -340,6 +340,7 @@ function StudyTimetable() {
   const [extendFor, setExtendFor] = useState<{ id: number; x: number; y: number } | null>(null);
   const [automationUrl, setAutomationUrl] = useState("");
   const [automationEnabled, setAutomationEnabled] = useState(false);
+  const [automationSecret, setAutomationSecret] = useState("");
   const [automationStatus, setAutomationStatus] = useState<AutomationStatus>("not-configured");
 
   const soundOnRef = useRef(true);
@@ -367,9 +368,15 @@ function StudyTimetable() {
     soundOnRef.current = load("tt_soundOn", true);
     const savedAutomationUrl = load("tt_automation_url", "");
     const savedAutomationEnabled = load("tt_automation_enabled", false);
+    const savedAutomationSecret = load("tt_automation_secret", "");
     setAutomationUrl(savedAutomationUrl);
     setAutomationEnabled(savedAutomationEnabled);
-    setAutomationStatus(savedAutomationUrl && savedAutomationEnabled ? "ready" : "not-configured");
+    setAutomationSecret(savedAutomationSecret);
+    setAutomationStatus(
+      savedAutomationUrl && savedAutomationEnabled && savedAutomationSecret
+        ? "ready"
+        : "not-configured",
+    );
     setMounted(true);
   }, []);
 
@@ -401,12 +408,16 @@ function StudyTimetable() {
   useEffect(() => {
     if (mounted) save("tt_automation_enabled", automationEnabled);
   }, [automationEnabled, mounted]);
+  useEffect(() => {
+    if (mounted) save("tt_automation_secret", automationSecret.trim());
+  }, [automationSecret, mounted]);
 
   /* -- zero-cost Google Apps Script automation sync -- */
   const sendAutomationEvent = useCallback(
     async (payload: AutomationPayload) => {
       const url = automationUrl.trim();
-      if (!automationEnabled || !url) {
+      const secret = automationSecret.trim();
+      if (!automationEnabled || !url || !secret) {
         setAutomationStatus("not-configured");
         return;
       }
@@ -417,7 +428,7 @@ function StudyTimetable() {
           mode: "no-cors",
           keepalive: true,
           headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({ ...payload, secret }),
         });
         setAutomationStatus("synced");
       } catch (error) {
@@ -425,7 +436,7 @@ function StudyTimetable() {
         setAutomationStatus("error");
       }
     },
-    [automationEnabled, automationUrl],
+    [automationEnabled, automationSecret, automationUrl],
   );
 
   const automationSnapshot = useCallback(
@@ -893,7 +904,7 @@ function StudyTimetable() {
       const current = new Date();
       if (current.getHours() === 22 && current.getMinutes() === 15 && !load(reportKey, false)) {
         save(reportKey, true);
-        if (automationEnabled && automationUrl.trim()) {
+        if (automationEnabled && automationUrl.trim() && automationSecret.trim()) {
           void sendAutomationEvent({
             type: "daily_report_snapshot",
             date: todayKey(),
@@ -911,6 +922,7 @@ function StudyTimetable() {
     return () => window.clearInterval(id);
   }, [
     automationEnabled,
+    automationSecret,
     automationSnapshot,
     automationUrl,
     buildMissionReport,
@@ -1251,7 +1263,21 @@ function StudyTimetable() {
                       onChange={(event) => {
                         setAutomationUrl(event.target.value);
                         setAutomationStatus(
-                          event.target.value.trim() && automationEnabled
+                          event.target.value.trim() && automationEnabled && automationSecret.trim()
+                            ? "ready"
+                            : "not-configured",
+                        );
+                      }}
+                    />
+                    <input
+                      aria-label="Apps Script shared secret"
+                      placeholder="Paste private shared secret"
+                      type="password"
+                      value={automationSecret}
+                      onChange={(event) => {
+                        setAutomationSecret(event.target.value);
+                        setAutomationStatus(
+                          event.target.value.trim() && automationEnabled && automationUrl.trim()
                             ? "ready"
                             : "not-configured",
                         );
@@ -1264,7 +1290,7 @@ function StudyTimetable() {
                         onChange={(event) => {
                           setAutomationEnabled(event.target.checked);
                           setAutomationStatus(
-                            event.target.checked && automationUrl.trim()
+                            event.target.checked && automationUrl.trim() && automationSecret.trim()
                               ? "ready"
                               : "not-configured",
                           );
