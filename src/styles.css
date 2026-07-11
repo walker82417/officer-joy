@@ -173,7 +173,7 @@
   color:var(--tt-text);
 }
 .tt-scaleWrap{ position:absolute;top:0;left:0;transform-origin:top left; }
-.tt-app{ width:1650px;background:var(--tt-paper);border:2px solid var(--tt-navy); }
+.tt-app{ width:1500px;background:var(--tt-paper);border:2px solid var(--tt-navy); }
 
 /* Exam strip */
 .tt-examStrip{ display:flex; }
