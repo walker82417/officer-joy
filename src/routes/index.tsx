@@ -1034,6 +1034,66 @@ function StudyTimetable() {
               <div className="tt-clock">{clockLine}</div>
             </div>
             <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
+            <div className="tt-autoSetupBar">
+              <div className="tt-autoSetupTitle">ZERO-COST AUTO EMAIL SETUP</div>
+              <input
+                aria-label="Top Apps Script Web App URL"
+                placeholder="Paste Apps Script Web App URL here"
+                value={automationUrl}
+                onChange={(event) => {
+                  setAutomationUrl(event.target.value);
+                  setAutomationStatus(
+                    event.target.value.trim() && automationEnabled && automationSecret.trim()
+                      ? "ready"
+                      : "not-configured",
+                  );
+                }}
+              />
+              <input
+                aria-label="Top Apps Script shared secret"
+                placeholder="Paste private shared secret"
+                type="password"
+                value={automationSecret}
+                onChange={(event) => {
+                  setAutomationSecret(event.target.value);
+                  setAutomationStatus(
+                    event.target.value.trim() && automationEnabled && automationUrl.trim()
+                      ? "ready"
+                      : "not-configured",
+                  );
+                }}
+              />
+              <label>
+                <input
+                  type="checkbox"
+                  checked={automationEnabled}
+                  onChange={(event) => {
+                    setAutomationEnabled(event.target.checked);
+                    setAutomationStatus(
+                      event.target.checked && automationUrl.trim() && automationSecret.trim()
+                        ? "ready"
+                        : "not-configured",
+                    );
+                  }}
+                />
+                Enable
+              </label>
+              <button
+                onClick={() =>
+                  void sendAutomationEvent({
+                    type: "manual_snapshot",
+                    date: todayKey(),
+                    sentAt: new Date().toISOString(),
+                    payload: automationSnapshot({ report: buildMissionReport() }),
+                  })
+                }
+              >
+                Sync Snapshot
+              </button>
+              <span className={`tt-autoStatus ${automationStatus}`}>
+                {automationStatus.replace("-", " ")}
+              </span>
+            </div>
           </div>
 
           {/* MAIN GRID */}

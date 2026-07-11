@@ -378,6 +378,62 @@
   border-bottom: 1px dashed var(--tt-line);
 }
 
+.tt-autoSetupBar {
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) minmax(190px, 0.65fr) auto auto auto;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 5px 7px;
+  border: 1px solid var(--tt-gold);
+  border-radius: 4px;
+  background: #fff8dc;
+}
+.tt-autoSetupTitle {
+  color: var(--tt-navy);
+  font-family: var(--tt-font-display);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  white-space: nowrap;
+}
+.tt-autoSetupBar input[type="text"],
+.tt-autoSetupBar input[type="password"],
+.tt-autoSetupBar input:not([type]) {
+  min-width: 0;
+  border: 1px solid var(--tt-line);
+  border-radius: 4px;
+  padding: 4px 6px;
+  font-size: 10px;
+}
+.tt-autoSetupBar label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--tt-navy);
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.tt-autoSetupBar button {
+  border: none;
+  border-radius: 4px;
+  background: var(--tt-navy);
+  color: var(--tt-gold);
+  cursor: pointer;
+  font-family: var(--tt-font-display);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 4px 7px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.tt-autoSetupBar .tt-autoStatus {
+  margin: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+
 .tt-currentSessionBar {
   margin: 6px 14px 0 14px;
   padding: 7px 12px;
