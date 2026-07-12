@@ -9,8 +9,20 @@
 const REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 const OWNER_NAME = "Officer Rohan";
 const TIMEZONE = "Asia/Kolkata";
-// Change this before deploying. It must match the private secret saved in the website.
+// Change this before deploying in Apps Script only. Do not commit your real secret to GitHub.
+// It must match the private secret saved in the website.
 const SHARED_SECRET = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET";
+
+function doGet() {
+  return ContentService.createTextOutput(
+    JSON.stringify({
+      ok: true,
+      service: "Officer Joy Apps Script automation",
+      message:
+        "Web app is deployed. Paste this /exec URL into the website, then use Sync Snapshot to test POST automation.",
+    }),
+  ).setMimeType(ContentService.MimeType.JSON);
+}
 
 function doPost(e) {
   const lock = LockService.getScriptLock();
@@ -108,29 +120,89 @@ function buildReport_(period, dateKey, events) {
     0,
   );
   const pending = latestSnapshot.pending || [];
+  const checklist = latestSnapshot.checklist || {};
   const examDates = latestSnapshot.examDates || {};
   const subject = `${OWNER_NAME} ${period} Mission Report — ${dateKey}`;
   const html = [
+    buildEmailStyle_(),
+    `<div class="oj-shell">`,
     `<h2>${subject}</h2>`,
     `<p>Jai Hind, ${OWNER_NAME}. Your automated zero-cost mission report is ready.</p>`,
-    `<h3>Mission Analytics</h3>`,
-    `<ul>`,
-    `<li><b>Events captured:</b> ${events.length}</li>`,
-    `<li><b>Completed sessions:</b> ${completed.length}</li>`,
-    `<li><b>Completed study time:</b> ${(completedMinutes / 60).toFixed(1)}h</li>`,
-    `<li><b>Extended core/focus time:</b> ${extensionMinutes} min</li>`,
-    `<li><b>Pending missions:</b> ${Array.isArray(pending) ? pending.length : 0}</li>`,
-    `</ul>`,
+    buildStatsHtml_(events, completed, completedMinutes, extensionMinutes, pending, checklist),
     buildExamHtml_(examDates),
     buildExtensionHtml_(extended),
-    `<p><b>Tomorrow's command:</b> Protect core subject time first, recover pending missions, and keep the chain alive.</p>`,
-    `<p>Discipline today. Selection tomorrow.</p>`,
+    `<p class="oj-command"><b>Tomorrow's command:</b> Protect core subject time first, recover pending missions, and keep the chain alive.</p>`,
+    `<p><b>Discipline today. Selection tomorrow.</b></p>`,
+    `</div>`,
   ].join("\n");
   const plain = html
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
   return { period, dateKey, subject, html, plain, eventCount: events.length };
+}
+
+function buildEmailStyle_() {
+  return [
+    `<style>`,
+    `@keyframes ojFill{from{width:0}to{width:var(--oj-width)}}`,
+    `.oj-shell{font-family:Arial,sans-serif;background:#fff8df;border:2px solid #f0b429;border-radius:18px;padding:18px;color:#1f2937}`,
+    `.oj-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:16px 0}`,
+    `.oj-card{background:#ffffff;border:1px solid #f5d565;border-radius:14px;padding:12px;box-shadow:0 3px 10px rgba(31,41,55,.08)}`,
+    `.oj-label{font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:#6b7280}`,
+    `.oj-value{font-size:28px;font-weight:800;color:#92400e;margin-top:4px}`,
+    `.oj-bar{height:12px;background:#fef3c7;border-radius:999px;overflow:hidden;margin-top:10px}`,
+    `.oj-fill{height:12px;background:linear-gradient(90deg,#f59e0b,#22c55e);border-radius:999px;animation:ojFill 1.2s ease-out both}`,
+    `.oj-command{background:#ecfeff;border-left:4px solid #06b6d4;padding:10px;border-radius:10px}`,
+    `</style>`,
+  ].join("\n");
+}
+
+function buildStatsHtml_(
+  events,
+  completed,
+  completedMinutes,
+  extensionMinutes,
+  pending,
+  checklist,
+) {
+  const checklistKeys = Object.keys(checklist || {});
+  const checklistDone = checklistKeys.filter((key) => checklist[key]).length;
+  const checklistTotal = checklistKeys.length || 1;
+  const checklistPct = Math.round((checklistDone / checklistTotal) * 100);
+  const pendingCount = Array.isArray(pending) ? pending.length : 0;
+  const studyHours = (completedMinutes / 60).toFixed(1);
+  return [
+    `<h3>Animated Mission Stats</h3>`,
+    `<p>These zero-cost email stats use HTML/CSS progress bars. If an email client blocks animation, the same bars still show the final values.</p>`,
+    `<div class="oj-grid">`,
+    renderStatCard_("Events captured", events.length, 100),
+    renderStatCard_("Completed sessions", completed.length, Math.min(100, completed.length * 10)),
+    renderStatCard_(
+      "Completed study time",
+      `${studyHours}h`,
+      Math.min(100, Number(studyHours) * 10),
+    ),
+    renderStatCard_("Checklist complete", `${checklistDone}/${checklistKeys.length}`, checklistPct),
+    renderStatCard_(
+      "Extended focus time",
+      `${extensionMinutes} min`,
+      Math.min(100, extensionMinutes),
+    ),
+    renderStatCard_("Pending missions", pendingCount, Math.max(0, 100 - pendingCount * 15)),
+    `</div>`,
+  ].join("\n");
+}
+
+function renderStatCard_(label, value, percent) {
+  const safePercent = Math.max(0, Math.min(100, Number(percent) || 0));
+  return [
+    `<div class="oj-card">`,
+    `<div class="oj-label">${label}</div>`,
+    `<div class="oj-value">${value}</div>`,
+    `<div class="oj-bar"><div class="oj-fill" style="--oj-width:${safePercent}%;width:${safePercent}%"></div></div>`,
+    `</div>`,
+  ].join("\n");
 }
 
 function buildExamHtml_(examDates) {
@@ -237,3 +309,5 @@ function safeJson_(value) {
     return { parseError: String(error), raw: value };
   }
 }
+
+// END OF FILE - paste through this line into Apps Script.
