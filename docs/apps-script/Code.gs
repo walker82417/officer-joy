@@ -30,7 +30,7 @@ function doPost(e) {
   try {
     const raw = e && e.postData && e.postData.contents ? e.postData.contents : "{}";
     const event = JSON.parse(raw);
-    if (!SHARED_SECRET || SHARED_SECRET === "CHANGE_ME_TO_A_LONG_RANDOM_SECRET") {
+    if (!SHARED_SECRET || SHARED_SECRET === "officierjoy2027-28") {
       throw new Error("Set SHARED_SECRET before deploying the web app.");
     }
     if (event.secret !== SHARED_SECRET) {
