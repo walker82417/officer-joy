@@ -12,6 +12,17 @@ const TIMEZONE = "Asia/Kolkata";
 // Change this before deploying. It must match the private secret saved in the website.
 const SHARED_SECRET = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET";
 
+function doGet() {
+  return ContentService.createTextOutput(
+    JSON.stringify({
+      ok: true,
+      service: "Officer Joy Apps Script automation",
+      message:
+        "Web app is deployed. Paste this /exec URL into the website, then use Sync Snapshot to test POST automation.",
+    }),
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);
@@ -237,3 +248,5 @@ function safeJson_(value) {
     return { parseError: String(error), raw: value };
   }
 }
+
+// END OF FILE - paste through this line into Apps Script.
