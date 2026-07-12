@@ -456,41 +456,6 @@ function StudyTimetable() {
     [checklist, completedLog, examDates, heatmapLog, pending, sessions, timeShift],
   );
 
-  const sendAutomationSnapshot = useCallback(
-    (type: "auto_snapshot" | "manual_snapshot") => {
-      save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
-      void sendAutomationEvent({
-        type,
-        date: todayKey(),
-        sentAt: new Date().toISOString(),
-        payload: automationSnapshot({ report: buildMissionReport() }),
-      });
-    },
-    [automationSnapshot, buildMissionReport, sendAutomationEvent],
-  );
-
-  useEffect(() => {
-    if (!mounted || !automationEnabled || !automationUrl.trim() || !automationSecret.trim()) return;
-
-    const syncIfDue = (force = false) => {
-      const key = `tt_last_auto_snapshot_${todayKey()}`;
-      const lastSyncedAt = load(key, 0);
-      if (!force && Date.now() - lastSyncedAt < AUTO_SNAPSHOT_INTERVAL_MS) return;
-      sendAutomationSnapshot("auto_snapshot");
-    };
-
-    syncIfDue();
-    const intervalId = window.setInterval(() => syncIfDue(), AUTO_SNAPSHOT_INTERVAL_MS);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") syncIfDue(true);
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [automationEnabled, automationSecret, automationUrl, mounted, sendAutomationSnapshot]);
-
   /* -- sound -- */
   const playTone = useCallback(
     (freq: number, duration: number, vol: number, type: OscillatorType = "sine") => {
@@ -924,6 +889,41 @@ function StudyTimetable() {
       ].join("\n"),
     };
   }, [completedLog, streak, todayIdx, totalFocus]);
+
+  const sendAutomationSnapshot = useCallback(
+    (type: "auto_snapshot" | "manual_snapshot") => {
+      save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
+      void sendAutomationEvent({
+        type,
+        date: todayKey(),
+        sentAt: new Date().toISOString(),
+        payload: automationSnapshot({ report: buildMissionReport() }),
+      });
+    },
+    [automationSnapshot, buildMissionReport, sendAutomationEvent],
+  );
+
+  useEffect(() => {
+    if (!mounted || !automationEnabled || !automationUrl.trim() || !automationSecret.trim()) return;
+
+    const syncIfDue = (force = false) => {
+      const key = `tt_last_auto_snapshot_${todayKey()}`;
+      const lastSyncedAt = load(key, 0);
+      if (!force && Date.now() - lastSyncedAt < AUTO_SNAPSHOT_INTERVAL_MS) return;
+      sendAutomationSnapshot("auto_snapshot");
+    };
+
+    syncIfDue();
+    const intervalId = window.setInterval(() => syncIfDue(), AUTO_SNAPSHOT_INTERVAL_MS);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") syncIfDue(true);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [automationEnabled, automationSecret, automationUrl, mounted, sendAutomationSnapshot]);
 
   const openMissionReportEmail = useCallback(() => {
     const report = buildMissionReport();
