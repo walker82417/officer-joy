@@ -10,7 +10,18 @@ const REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com
 const OWNER_NAME = "Officer Rohan";
 const TIMEZONE = "Asia/Kolkata";
 // Change this before deploying. It must match the private secret saved in the website.
-const SHARED_SECRET = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET";
+const SHARED_SECRET = "officierjoy2027-28";
+
+function doGet() {
+  return ContentService.createTextOutput(
+    JSON.stringify({
+      ok: true,
+      service: "Officer Joy Apps Script automation",
+      message:
+        "Web app is deployed. Paste this /exec URL into the website, then use Sync Snapshot to test POST automation.",
+    }),
+  ).setMimeType(ContentService.MimeType.JSON);
+}
 
 function doGet() {
   return ContentService.createTextOutput(
@@ -29,7 +40,7 @@ function doPost(e) {
   try {
     const raw = e && e.postData && e.postData.contents ? e.postData.contents : "{}";
     const event = JSON.parse(raw);
-    if (!SHARED_SECRET || SHARED_SECRET === "CHANGE_ME_TO_A_LONG_RANDOM_SECRET") {
+    if (!SHARED_SECRET || SHARED_SECRET === "officierjoy2027-28") {
       throw new Error("Set SHARED_SECRET before deploying the web app.");
     }
     if (event.secret !== SHARED_SECRET) {
