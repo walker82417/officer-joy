@@ -226,6 +226,7 @@ const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
   16: "Sleep Before 10 PM",
 };
 const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
+const AUTO_SNAPSHOT_INTERVAL_MS = 15 * 60 * 1000;
 const QUOTES = [
   "The harder you work for something, the greater you'll feel when you achieve it.",
   "Don't stop when you're tired. Stop when you're done.",
@@ -454,6 +455,41 @@ function StudyTimetable() {
     }),
     [checklist, completedLog, examDates, heatmapLog, pending, sessions, timeShift],
   );
+
+  const sendAutomationSnapshot = useCallback(
+    (type: "auto_snapshot" | "manual_snapshot") => {
+      save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
+      void sendAutomationEvent({
+        type,
+        date: todayKey(),
+        sentAt: new Date().toISOString(),
+        payload: automationSnapshot({ report: buildMissionReport() }),
+      });
+    },
+    [automationSnapshot, buildMissionReport, sendAutomationEvent],
+  );
+
+  useEffect(() => {
+    if (!mounted || !automationEnabled || !automationUrl.trim() || !automationSecret.trim()) return;
+
+    const syncIfDue = (force = false) => {
+      const key = `tt_last_auto_snapshot_${todayKey()}`;
+      const lastSyncedAt = load(key, 0);
+      if (!force && Date.now() - lastSyncedAt < AUTO_SNAPSHOT_INTERVAL_MS) return;
+      sendAutomationSnapshot("auto_snapshot");
+    };
+
+    syncIfDue();
+    const intervalId = window.setInterval(() => syncIfDue(), AUTO_SNAPSHOT_INTERVAL_MS);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") syncIfDue(true);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [automationEnabled, automationSecret, automationUrl, mounted, sendAutomationSnapshot]);
 
   /* -- sound -- */
   const playTone = useCallback(
@@ -1035,7 +1071,9 @@ function StudyTimetable() {
             </div>
             <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
             <div className="tt-autoSetupBar">
-              <div className="tt-autoSetupTitle">ZERO-COST AUTO EMAIL SETUP</div>
+              <div className="tt-autoSetupTitle">
+                ZERO-COST AUTO EMAIL SETUP • SAVED ON THIS DEVICE
+              </div>
               <input
                 aria-label="Top Apps Script Web App URL"
                 placeholder="Paste Apps Script Web App URL here"
@@ -1078,16 +1116,7 @@ function StudyTimetable() {
                 />
                 Enable
               </label>
-              <button
-                onClick={() =>
-                  void sendAutomationEvent({
-                    type: "manual_snapshot",
-                    date: todayKey(),
-                    sentAt: new Date().toISOString(),
-                    payload: automationSnapshot({ report: buildMissionReport() }),
-                  })
-                }
-              >
+              <button onClick={() => sendAutomationSnapshot("manual_snapshot")}>
                 Sync Snapshot
               </button>
               <span className={`tt-autoStatus ${automationStatus}`}>
@@ -1313,8 +1342,9 @@ function StudyTimetable() {
                   <div className="tt-card tt-emailCard">
                     <h3>ZERO-COST AUTO EMAIL</h3>
                     <p>
-                      Apps Script sync for automated Sheets + Gmail reports. Manual email stays as
-                      fallback.
+                      Apps Script sync for automated Sheets + Gmail reports. URL and secret stay
+                      saved in this browser after restart unless site data is cleared. Manual email
+                      stays as fallback.
                     </p>
                     <input
                       aria-label="Apps Script Web App URL"
@@ -1362,16 +1392,7 @@ function StudyTimetable() {
                       Status: {automationStatus.replace("-", " ")}
                     </div>
                     <div className="tt-emailActions">
-                      <button
-                        onClick={() =>
-                          void sendAutomationEvent({
-                            type: "manual_snapshot",
-                            date: todayKey(),
-                            sentAt: new Date().toISOString(),
-                            payload: automationSnapshot({ report: buildMissionReport() }),
-                          })
-                        }
-                      >
+                      <button onClick={() => sendAutomationSnapshot("manual_snapshot")}>
                         Sync Snapshot
                       </button>
                       <button onClick={openMissionReportEmail}>Manual Email</button>
