@@ -23,6 +23,17 @@ function doGet() {
   ).setMimeType(ContentService.MimeType.JSON);
 }
 
+function doGet() {
+  return ContentService.createTextOutput(
+    JSON.stringify({
+      ok: true,
+      service: "Officer Joy Apps Script automation",
+      message:
+        "Web app is deployed. Paste this /exec URL into the website, then use Sync Snapshot to test POST automation.",
+    }),
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+
 function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(10000);

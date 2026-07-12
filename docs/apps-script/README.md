@@ -50,14 +50,15 @@ with your private value, then paste that same value into the website field label
 3. Paste `Code.gs` into the Apps Script editor.
 4. Update `REPORT_RECIPIENTS` in `Code.gs`.
 5. Create your private shared secret using the section above, then replace `SHARED_SECRET` with that value.
-6. Deploy as **Web app**.
-7. Set access to **Anyone with the link** so the website can post events.
-8. Copy the Web App URL.
-9. Open the website and look near the top of the dashboard, directly below the quote, for **ZERO-COST AUTO EMAIL SETUP**. If you are lower on the page, the same controls also appear in the **Zero-cost Auto Email** card.
-10. Paste the Web App URL into **Paste Apps Script Web App URL here** and paste the same shared secret into **Paste private shared secret**.
-11. Tick **Enable**, then click **Sync Snapshot**.
-12. Check the Google Sheet `Events` tab for a new row.
-13. In Apps Script, add time-driven triggers for:
+6. Click **Save** in Apps Script. Saving is required, but it is not enough by itself.
+7. Deploy as **Web app**. For an existing deployment, click **Deploy → Manage deployments → pencil/edit → Version → New version → Deploy**. The existing `/exec` URL will keep serving the old code until you deploy a new version.
+8. Set access to **Anyone with the link** so the website can post events.
+9. Copy the Web App URL.
+10. Open the website and look near the top of the dashboard, directly below the quote, for **ZERO-COST AUTO EMAIL SETUP**. If you are lower on the page, the same controls also appear in the **Zero-cost Auto Email** card.
+11. Paste the Web App URL into **Paste Apps Script Web App URL here** and paste the same shared secret into **Paste private shared secret**.
+12. Tick **Enable**, then click **Sync Snapshot**.
+13. Check the Google Sheet `Events` tab for a new row.
+14. In Apps Script, add time-driven triggers for:
     - `sendDailyReport`
     - `sendWeeklyReport`
     - `sendMonthlyReport`
@@ -72,7 +73,7 @@ Fix it by copying the entire `Code.gs` file from the first comment at the top th
 
 Opening the Web App URL in a browser uses an HTTP GET request. The automation itself uses HTTP POST requests from the website, but the template includes a small `doGet()` health check so the `/exec` URL also shows a JSON success message in a browser.
 
-If you see `Script function not found: doGet`, your deployed Apps Script code is still missing the health-check function. Paste the latest `Code.gs`, save it, and redeploy a new web app version. After redeploying, opening the `/exec` URL should show `"ok": true`; then use the website's **Sync Snapshot** button for the real end-to-end test.
+If you see `Script function not found: doGet`, your browser is still hitting a deployment version that does not include the health-check function. Paste the latest `Code.gs`, click **Save**, then deploy a **new version** with **Deploy → Manage deployments → pencil/edit → Version → New version → Deploy**. After redeploying, opening the `/exec` URL should show `"ok": true`; then use the website's **Sync Snapshot** button for the real end-to-end test.
 
 ## Which Apps Script URL to use
 
