@@ -61,8 +61,8 @@ Treat any shared secret committed to GitHub or pasted in chat as exposed, even i
 9. Copy the Web App URL.
 10. Open the website and look near the top of the dashboard, directly below the quote, for **ZERO-COST AUTO EMAIL SETUP**. If you are lower on the page, the same controls also appear in the **Zero-cost Auto Email** card.
 11. Paste the Web App URL into **Paste Apps Script Web App URL here** and paste the same shared secret into **Paste private shared secret**.
-12. Tick **Enable**, then click **Sync Snapshot**.
-13. Check the Google Sheet `Events` tab for a new row.
+12. Tick **Enable**. The website now sends an automatic snapshot immediately when due and continues syncing snapshots every 15 minutes while the page is open; **Sync Snapshot** remains available only as a manual test button.
+13. Check the Google Sheet `Events` tab for a new row. You should not need to repeatedly click **Sync Snapshot** after setup.
 14. In Apps Script, add time-driven triggers for:
     - `sendDailyReport`
     - `sendWeeklyReport`
@@ -85,6 +85,16 @@ If you see `Script function not found: doGet`, your browser is still hitting a d
 Use only the deployed **Web App URL** that ends in `/exec`. Do not use or paste the Apps Script **Library URL**; that URL is only for reusing this script inside another Apps Script project.
 
 Do not hardcode the Web App URL or private shared secret in the React source code. The website saves both values in browser local storage after you paste them into the setup controls.
+
+## Persistence after restart
+
+The website saves the Web App URL, Enable toggle, and private shared secret in this browser's local storage. A normal laptop restart, power off, or sleep/wake should not require re-entering them. You only need to paste them again if you clear browser site data, use incognito/private browsing, switch browsers/devices, or open a different deployed website domain.
+
+## Fully automated sync behavior
+
+After the Web App URL, shared secret, and **Enable** checkbox are configured, the website automatically syncs study events as you use the dashboard and sends a full snapshot every 15 minutes while the page is open. Apps Script time-driven triggers then send daily, weekly, and monthly emails without paid services.
+
+Because this is a zero-cost browser + Apps Script setup, the website must be opened at least periodically to sync the latest local browser state to Google Sheets. The **Sync Snapshot** button is only for manual testing or forcing an immediate sync.
 
 ## Animated email stats
 
