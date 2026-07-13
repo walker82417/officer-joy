@@ -54,6 +54,8 @@ const CHECKLIST_ITEMS = ["Wake Up", "Exercise", "Breakfast", "Theory Completed",
 const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
   0: "Wake Up", 1: "Exercise", 3: "Breakfast", 4: "Theory Completed", 6: "Numericals Completed", 8: "PYQs", 10: "Aptitude", 15: "Revision", 16: "Sleep Before 10 PM",
 };
+
+// Make sure this URL matches your latest deployment exactly
 const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 const AUTOMATION_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3PeJjHY-DaFSjknr5K4gyy6JjWLdMJR_ZWYwKPhjbbkFOdiQgExY6rp_M7z3Vf6yq/exec";
 const AUTOMATION_SHARED_SECRET = "rohan-secure-2026";
@@ -173,6 +175,7 @@ function initChecklist(): Record<string, boolean> {
    ============================================================= */
 function StudyTimetable() {
   const [mounted, setMounted] = useState(false);
+  const [initialSyncDone, setInitialSyncDone] = useState(false); // The Cloud Lock
   const [nowTick, setNowTick] = useState(0);
   const [examDates, setExamDates] = useState(EXAMS_DEFAULT);
   const [sessions, setSessions] = useState<Record<number, SessionRec>>(initSessions);
@@ -222,18 +225,17 @@ function StudyTimetable() {
       try {
         setAutomationStatus("syncing");
         const url = `${AUTOMATION_WEB_APP_URL}?secret=${AUTOMATION_SHARED_SECRET}`;
-        // Note: Do not use no-cors here. Apps Script handles GET CORS automatically.
         const res = await fetch(url, { redirect: "follow" });
         const json = await res.json();
 
         if (json.ok && json.hasData && json.snapshot && json.snapshot.date === dateKey) {
           const snap = json.snapshot;
           const localLastUpdate = load(`tt_last_auto_snapshot_${dateKey}`, 0);
-          const remoteLastUpdate = snap.lastUpdated || 0;
+          const remoteLastUpdate = snap.lastUpdated || 1; // Fallback so older clouds still trigger
 
-          // If the cloud state is newer than the local memory (e.g. opening a new browser)
-          if (remoteLastUpdate > localLastUpdate) {
-            console.log("Remote cloud state is newer. Syncing timetable to match other device...");
+          // Force sync if local is empty (0) OR remote is newer
+          if (localLastUpdate === 0 || remoteLastUpdate > localLastUpdate) {
+            console.log("Cloud sync applied!");
             setSessions(reconcileSessionsWithCompletedLogs(snap.sessions, snap.completedLog || [], dateKey));
             setChecklist(snap.checklist || initChecklist());
             setPending(snap.pending || []);
@@ -248,6 +250,9 @@ function StudyTimetable() {
       } catch (err) {
         console.error("Cloud fetch failed, using local offline data.", err);
         setAutomationStatus("error");
+      } finally {
+        // UNLOCK the auto-snapshot system ONLY after download finishes
+        setInitialSyncDone(true);
       }
     };
     
@@ -279,7 +284,7 @@ function StudyTimetable() {
     (extra: Record<string, unknown> = {}) => ({
       owner: "Officer Rohan",
       date: todayKey(),
-      lastUpdated: Date.now(), // <--- Critical for Cross-Browser Universality
+      lastUpdated: Date.now(),
       examDates,
       checklist,
       pending,
@@ -667,6 +672,7 @@ function StudyTimetable() {
 
   useEffect(() => {
     if (!mounted) return;
+    
     const flushQueuedAutomation = async () => {
       const queued = load<AutomationPayload[]>(AUTOMATION_QUEUE_KEY, []);
       if (!queued.length) return;
@@ -679,6 +685,7 @@ function StudyTimetable() {
     };
 
     const syncIfDue = (force = false) => {
+      if (!initialSyncDone) return; // THE LOCK: Prevent overwrite before download finishes
       void flushQueuedAutomation();
       const key = `tt_last_auto_snapshot_${todayKey()}`;
       const lastSyncedAt = load(key, 0);
@@ -691,7 +698,7 @@ function StudyTimetable() {
     const handleVisibilityChange = () => { if (document.visibilityState === "hidden") syncIfDue(true); };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => { window.clearInterval(intervalId); document.removeEventListener("visibilitychange", handleVisibilityChange); };
-  }, [mounted, sendAutomationSnapshot]);
+  }, [mounted, initialSyncDone, sendAutomationSnapshot]); // Added initialSyncDone to dependency array
 
   const openMissionReportEmail = useCallback(() => {
     const report = buildMissionReport();
@@ -999,6 +1006,7 @@ function StudyTimetable() {
           return (
             <div className="tt-timerMini" onClick={() => setTimerMinimized(false)} title="Click to open full timer">
               <span className="tt-tmIcon">{active.icon}</span>
+              <span className="tt-tmSubj">{active.act}</span>
               <span className="tt-tmBig">{fmtTime(st.remaining)}</span>
             </div>
           );
@@ -1054,6 +1062,7 @@ function StudyTimetable() {
         .tt-timerMini { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #1f2870; color: white; padding: 10px 30px; border-radius: 50px; display: flex; align-items: center; gap: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 9998; cursor: pointer; border: 2px solid #f0b429; transition: transform 0.2s; }
         .tt-timerMini:active { transform: translateX(-50%) scale(0.95); }
         .tt-timerMini .tt-tmIcon { font-size: 20px; }
+        .tt-timerMini .tt-tmSubj { font-size: 16px; font-weight: 600; color: #fcd34d; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid rgba(255,255,255,0.3); padding-right: 15px; }
         .tt-timerMini .tt-tmBig { font-size: 22px; font-weight: 800; font-family: monospace; letter-spacing: 1px; }
 
         .tt-tmCloseBtn { background: #e5e7eb; color: #4b5563; border: none; padding: 6px 12px; border-radius: 12px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
