@@ -90,11 +90,15 @@ Do not hardcode the Web App URL or private shared secret in the React source cod
 
 The website saves the Web App URL, Enable toggle, and private shared secret in this browser's local storage. A normal laptop restart, power off, or sleep/wake should not require re-entering them. You only need to paste them again if you clear browser site data, use incognito/private browsing, switch browsers/devices, or open a different deployed website domain.
 
+If you run the dashboard inside Lively Wallpaper or another Edge/WebView host and it keeps forgetting local storage, paste the Web App URL and private shared secret once, then click **Copy Lively URL** in the dashboard. Use that copied URL in Lively Wallpaper. The dashboard will restore the automation settings from the URL parameters on every load and then save them back into local storage for that host. Keep that copied URL private because it contains your Apps Script shared secret.
+
 ## Fully automated sync behavior
 
 After the Web App URL, shared secret, and **Enable** checkbox are configured, the website automatically syncs study events as you use the dashboard and sends a full snapshot every 15 minutes while the page is open. Apps Script time-driven triggers then send daily, weekly, and monthly emails without paid services.
 
 Because this is a zero-cost browser + Apps Script setup, the website must be opened at least periodically to sync the latest local browser state to Google Sheets. The **Sync Snapshot** button is only for manual testing or forcing an immediate sync.
+
+The in-browser fallback daily report is sent once the dashboard is open at or after 10:15 PM. If the page is asleep, closed, or the automation settings are missing at that time, the browser cannot send the event. Apps Script time-driven triggers remain the reliable email sender, but they can only report the events that already reached the Google Sheet.
 
 ## Animated email stats
 
