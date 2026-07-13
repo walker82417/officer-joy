@@ -11,7 +11,7 @@ const OWNER_NAME = "Officer Rohan";
 const TIMEZONE = "Asia/Kolkata";
 // Change this before deploying in Apps Script only. Do not commit your real secret to GitHub.
 // It must match the private secret saved in the website.
-const SHARED_SECRET = "CHANGE_ME_TO_A_LONG_RANDOM_SECRET";
+const SHARED_SECRET = "officerjoy27-28";
 
 function doGet() {
   return ContentService.createTextOutput(
@@ -30,7 +30,7 @@ function doPost(e) {
   try {
     const raw = e && e.postData && e.postData.contents ? e.postData.contents : "{}";
     const event = JSON.parse(raw);
-    if (!SHARED_SECRET || SHARED_SECRET === "officierjoy2027-28") {
+    if (!SHARED_SECRET) {
       throw new Error("Set SHARED_SECRET before deploying the web app.");
     }
     if (event.secret !== SHARED_SECRET) {
@@ -38,6 +38,9 @@ function doPost(e) {
     }
     delete event.secret;
     appendEvent_(event);
+    if (event.type === "daily_report_snapshot") {
+      sendDailyReport();
+    }
     return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(
       ContentService.MimeType.JSON,
     );
@@ -107,10 +110,10 @@ function appendEvent_(event) {
 function buildReport_(period, dateKey, events) {
   const completed = events.filter((event) => String(event.type).indexOf("completed") !== -1);
   const extended = events.filter((event) => event.type === "session_extended");
-  const manualSnapshots = events.filter((event) => event.type === "manual_snapshot");
-  const latestSnapshot = manualSnapshots.length
-    ? manualSnapshots[manualSnapshots.length - 1].payload
-    : {};
+  const snapshots = events.filter((event) =>
+    ["manual_snapshot", "auto_snapshot", "daily_report_snapshot"].includes(event.type),
+  );
+  const latestSnapshot = snapshots.length ? snapshots[snapshots.length - 1].payload : {};
   const completedMinutes = completed.reduce((sum, event) => {
     const row = event.payload && event.payload.row ? event.payload.row : {};
     return sum + Number(row.dur || 0);

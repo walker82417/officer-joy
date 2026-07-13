@@ -229,7 +229,7 @@ const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gma
 const AUTOMATION_WEB_APP_URL =
   "https://script.google.com/macros/s/AKfycby3PeJjHY-DaFSjknr5K4gyy6JjWLdMJR_ZWYwKPhjbbkFOdiQgExY6rp_M7z3Vf6yq/exec";
 const AUTOMATION_SHARED_SECRET = "officerjoy27-28";
-const AUTO_SNAPSHOT_INTERVAL_MS = 15 * 60 * 1000;
+const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 1000;
 const QUOTES = [
   "The harder you work for something, the greater you'll feel when you achieve it.",
   "Don't stop when you're tired. Stop when you're done.",
@@ -934,13 +934,16 @@ function StudyTimetable() {
   }, [completedLog, streak, todayIdx, totalFocus]);
 
   const sendAutomationSnapshot = useCallback(
-    (type: "auto_snapshot" | "manual_snapshot") => {
+    (type: "auto_snapshot" | "manual_snapshot" | "daily_report_snapshot") => {
       save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
       void sendAutomationEvent({
         type,
         date: todayKey(),
         sentAt: new Date().toISOString(),
-        payload: automationSnapshot({ report: buildMissionReport() }),
+        payload: automationSnapshot({
+          report: buildMissionReport(),
+          emailReport: type === "daily_report_snapshot",
+        }),
       });
     },
     [automationSnapshot, buildMissionReport, sendAutomationEvent],
@@ -986,12 +989,7 @@ function StudyTimetable() {
       if (reportDue && !load(reportKey, false)) {
         save(reportKey, true);
         if (AUTOMATION_WEB_APP_URL && AUTOMATION_SHARED_SECRET) {
-          void sendAutomationEvent({
-            type: "daily_report_snapshot",
-            date: todayKey(),
-            sentAt: new Date().toISOString(),
-            payload: automationSnapshot({ report: buildMissionReport() }),
-          });
+          sendAutomationSnapshot("daily_report_snapshot");
         } else {
           openMissionReportEmail();
         }
@@ -1001,13 +999,7 @@ function StudyTimetable() {
     checkReportTime();
     const id = window.setInterval(checkReportTime, 30000);
     return () => window.clearInterval(id);
-  }, [
-    automationSnapshot,
-    buildMissionReport,
-    mounted,
-    openMissionReportEmail,
-    sendAutomationEvent,
-  ]);
+  }, [mounted, openMissionReportEmail, sendAutomationSnapshot]);
 
   /* =========================================================
      RENDER
@@ -1352,8 +1344,8 @@ function StudyTimetable() {
                   <div className="tt-card tt-emailCard">
                     <h3>AUTO EMAIL SYNC</h3>
                     <p>
-                      Google Apps Script is configured inside the app code, so no private setup form
-                      is shown on the wallpaper screen.
+                      Google Apps Script is configured inside the app code. Data syncs every 5
+                      seconds, and the daily email report is requested automatically at 10:15 PM.
                     </p>
                     <div className={`tt-autoStatus ${automationStatus}`}>
                       <span className="tt-syncDot" aria-hidden="true" />
