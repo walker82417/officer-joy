@@ -7,6 +7,7 @@
  */
 
 const REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
+const FRONTEND_DAILY_REPORT_RECIPIENT = "rohandoiphode1@gmail.com";
 const OWNER_NAME = "Officer Rohan";
 const TIMEZONE = "Asia/Kolkata";
 // Change this before deploying in Apps Script only. Do not commit your real secret to GitHub.
@@ -37,6 +38,9 @@ function doPost(e) {
       throw new Error("Unauthorized automation request.");
     }
     delete event.secret;
+    if (event.type === "daily_report_snapshot") {
+      return sendFrontendDailyReport_(event);
+    }
     appendEvent_(event);
     if (event.type === "daily_report_snapshot") {
       sendDailyReport();
@@ -52,6 +56,55 @@ function doPost(e) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function sendFrontendDailyReport_(event) {
+  const reportData = event.payload && event.payload.report ? event.payload.report : {};
+  const subject = reportData.subject || `${OWNER_NAME} Daily Mission Report`;
+  const body = reportData.body || "Daily mission report payload was received, but no body was provided.";
+
+  MailApp.sendEmail({
+    to: FRONTEND_DAILY_REPORT_RECIPIENT,
+    subject,
+    body,
+  });
+
+  appendDailyReportEvent_(event);
+  appendFrontendEmailLog_(FRONTEND_DAILY_REPORT_RECIPIENT, subject, "Sent Successfully");
+
+  return ContentService.createTextOutput(
+    JSON.stringify({ ok: true, status: "Report Emailed and Logged!" }),
+  ).setMimeType(ContentService.MimeType.JSON);
+}
+
+function appendDailyReportEvent_(event) {
+  const sheet = getSheet_("Events", [
+    "receivedAt",
+    "eventDate",
+    "type",
+    "sentAt",
+    "activity",
+    "category",
+    "status",
+    "minutes",
+    "payloadJson",
+  ]);
+  sheet.appendRow([
+    new Date(),
+    event.date || "",
+    event.type || "daily_report_snapshot",
+    event.sentAt || "",
+    "Daily Mission Report",
+    "Report",
+    "Emailed",
+    0,
+    JSON.stringify(event.payload || {}),
+  ]);
+}
+
+function appendFrontendEmailLog_(recipient, subject, status) {
+  const sheet = getSheet_("EmailLog", ["createdAt", "recipient", "subject", "status"]);
+  sheet.appendRow([new Date(), recipient, subject, status]);
 }
 
 function sendDailyReport() {
@@ -262,8 +315,8 @@ function appendReport_(report) {
 }
 
 function appendEmailLog_(status, message) {
-  const sheet = getSheet_("EmailLog", ["createdAt", "status", "message"]);
-  sheet.appendRow([new Date(), status, message]);
+  const sheet = getSheet_("EmailLog", ["createdAt", "recipient", "subject", "status"]);
+  sheet.appendRow([new Date(), "system", status, message]);
 }
 
 function getEventsForDate_(dateKey) {

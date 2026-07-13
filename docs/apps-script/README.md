@@ -97,7 +97,7 @@ After deployment, the website automatically syncs study events as you use the da
 
 Because this is a zero-cost browser + Apps Script setup, the website must be opened at least periodically to sync the latest local browser state to Google Sheets. The **Sync Now** button is only for manual testing or forcing an immediate sync.
 
-The in-browser daily report request is sent automatically once the dashboard is open at or after 10:15 PM. If the page is asleep or closed at that time, the browser cannot send the event. Apps Script time-driven triggers remain the reliable email sender, but they can only report the events that already reached the Google Sheet.
+The in-browser daily report request is sent automatically once the dashboard is open at or after 10:15 PM. Apps Script catches that `daily_report_snapshot`, emails the frontend-built mission report to `rohandoiphode1@gmail.com`, appends telemetry to `Events`, and records the send in `EmailLog`. If the page is asleep or closed at that time, the browser cannot send the event, so Apps Script time-driven triggers remain a backup.
 
 ## Animated email stats
 
