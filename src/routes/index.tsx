@@ -56,9 +56,14 @@ const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
 };
 
 const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
+
+// IMPORTANT: Ensure this URL exactly matches your latest Apps Script deployment
 const AUTOMATION_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3PeJjHY-DaFSjknr5K4gyy6JjWLdMJR_ZWYwKPhjbbkFOdiQgExY6rp_M7z3Vf6yq/exec";
 const AUTOMATION_SHARED_SECRET = "rohan-secure-2026";
-const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 1000;
+
+// ALGORITHM UPDATE: Reduced to 5 minutes to prevent Google Sheets Overload
+const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; 
+
 const AUTOMATION_QUEUE_KEY = "tt_automation_offline_queue";
 const MAX_AUTOMATION_QUEUE_ITEMS = 500;
 const QUOTES = [
@@ -235,15 +240,14 @@ function StudyTimetable() {
         try {
           json = JSON.parse(text);
         } catch(e) {
-          console.error("Fetch returned HTML (Google Login). Ensure Apps Script is shared with 'Anyone'.");
+          console.error("Fetch returned HTML. Please ensure correct App Script URL and 'Anyone' access.");
           setAutomationStatus("error");
-          setStatusMessage("Google blocked sync. Fix Apps Script Access!");
+          setStatusMessage("Google blocked sync. Fix Apps Script URL/Access.");
           return;
         }
 
         if (json.ok && json.hasData && json.snapshot) {
           const snap = json.snapshot;
-          
           if (snap.date === dateKey) {
             const localLastUpdate = load(`tt_last_auto_snapshot_${dateKey}`, 0);
             const remoteLastUpdate = snap.lastUpdated || 1; 
@@ -286,11 +290,13 @@ function StudyTimetable() {
 
   const sendAutomationEvent = useCallback(async (payload: AutomationPayload) => {
     setAutomationStatus("syncing");
-    setStatusMessage("Pushing update...");
+    setStatusMessage("Pushing explicit event...");
     try {
       await postAutomationPayload(payload);
       setAutomationStatus("synced");
       setStatusMessage("Connected & synced");
+      // Update local timestamp to prevent redundant background syncs
+      save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
     } catch (error) {
       queueAutomationPayload(payload);
       setAutomationStatus("error");
@@ -439,7 +445,7 @@ function StudyTimetable() {
   }, [totalFocus, doneToday.length, nowTick]);
 
   /* =========================================================
-     ACTIONS
+     ACTIONS (Now with Event-Driven Sync Built-In!)
      ========================================================= */
   const startSession = useCallback(
     (id: number) => {
@@ -702,7 +708,7 @@ function StudyTimetable() {
     };
 
     const syncIfDue = (force = false) => {
-      if (!initialSyncDone) return; // THE LOCK
+      if (!initialSyncDone) return; 
       void flushQueuedAutomation();
       const key = `tt_last_auto_snapshot_${todayKey()}`;
       const lastSyncedAt = load(key, 0);
@@ -936,8 +942,8 @@ function StudyTimetable() {
                     </div>
                   </div>
                   <div className="tt-card tt-emailCard">
-                    <h3>AUTO EMAIL SYNC</h3>
-                    <p>Google Apps Script is configured inside the app code. Data syncs every 5 seconds, and the daily email report is requested automatically at 10:15 PM.</p>
+                    <h3>EVENT-DRIVEN AUTO SYNC</h3>
+                    <p>Algorithm updated: App now primarily syncs exactly when you act (Start, Pause, Extend, Complete) to prevent Google Sheets from overloading.</p>
                   </div>
                 </div>
 
