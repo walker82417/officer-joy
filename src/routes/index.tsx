@@ -55,7 +55,6 @@ const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
   0: "Wake Up", 1: "Exercise", 3: "Breakfast", 4: "Theory Completed", 6: "Numericals Completed", 8: "PYQs", 10: "Aptitude", 15: "Revision", 16: "Sleep Before 10 PM",
 };
 
-// Make sure this URL matches your latest deployment exactly
 const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 const AUTOMATION_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3PeJjHY-DaFSjknr5K4gyy6JjWLdMJR_ZWYwKPhjbbkFOdiQgExY6rp_M7z3Vf6yq/exec";
 const AUTOMATION_SHARED_SECRET = "rohan-secure-2026";
@@ -231,11 +230,10 @@ function StudyTimetable() {
         if (json.ok && json.hasData && json.snapshot && json.snapshot.date === dateKey) {
           const snap = json.snapshot;
           const localLastUpdate = load(`tt_last_auto_snapshot_${dateKey}`, 0);
-          const remoteLastUpdate = snap.lastUpdated || 1; // Fallback so older clouds still trigger
+          const remoteLastUpdate = snap.lastUpdated || 1; 
 
-          // Force sync if local is empty (0) OR remote is newer
           if (localLastUpdate === 0 || remoteLastUpdate > localLastUpdate) {
-            console.log("Cloud sync applied!");
+            console.log("Cloud sync applied successfully!");
             setSessions(reconcileSessionsWithCompletedLogs(snap.sessions, snap.completedLog || [], dateKey));
             setChecklist(snap.checklist || initChecklist());
             setPending(snap.pending || []);
@@ -245,13 +243,14 @@ function StudyTimetable() {
             if (snap.examDates) setExamDates(snap.examDates);
             save(`tt_last_auto_snapshot_${dateKey}`, remoteLastUpdate);
           }
+        } else {
+          console.log("No remote snapshot found for today.");
         }
         setAutomationStatus("synced");
       } catch (err) {
         console.error("Cloud fetch failed, using local offline data.", err);
         setAutomationStatus("error");
       } finally {
-        // UNLOCK the auto-snapshot system ONLY after download finishes
         setInitialSyncDone(true);
       }
     };
@@ -672,7 +671,6 @@ function StudyTimetable() {
 
   useEffect(() => {
     if (!mounted) return;
-    
     const flushQueuedAutomation = async () => {
       const queued = load<AutomationPayload[]>(AUTOMATION_QUEUE_KEY, []);
       if (!queued.length) return;
@@ -698,7 +696,7 @@ function StudyTimetable() {
     const handleVisibilityChange = () => { if (document.visibilityState === "hidden") syncIfDue(true); };
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => { window.clearInterval(intervalId); document.removeEventListener("visibilitychange", handleVisibilityChange); };
-  }, [mounted, initialSyncDone, sendAutomationSnapshot]); // Added initialSyncDone to dependency array
+  }, [mounted, initialSyncDone, sendAutomationSnapshot]); 
 
   const openMissionReportEmail = useCallback(() => {
     const report = buildMissionReport();
@@ -1002,12 +1000,15 @@ function StudyTimetable() {
         const canExtend = st.status === "completed" || st.remaining <= 600;
 
         if (timerMinimized) {
-          // TOP-CENTER MINI WIDGET
+          // TOP-CENTER MINI WIDGET - THE FIX
           return (
             <div className="tt-timerMini" onClick={() => setTimerMinimized(false)} title="Click to open full timer">
               <span className="tt-tmIcon">{active.icon}</span>
               <span className="tt-tmSubj">{active.act}</span>
-              <span className="tt-tmBig">{fmtTime(st.remaining)}</span>
+              {/* Added hardcoded styles to guarantee visibility */}
+              <span className="tt-tmBig" style={{ color: "#4ade80", textShadow: "0px 2px 4px rgba(0,0,0,0.6)" }}>
+                {fmtTime(st.remaining)}
+              </span>
             </div>
           );
         }
@@ -1063,7 +1064,7 @@ function StudyTimetable() {
         .tt-timerMini:active { transform: translateX(-50%) scale(0.95); }
         .tt-timerMini .tt-tmIcon { font-size: 20px; }
         .tt-timerMini .tt-tmSubj { font-size: 16px; font-weight: 600; color: #fcd34d; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid rgba(255,255,255,0.3); padding-right: 15px; }
-        .tt-timerMini .tt-tmBig { font-size: 22px; font-weight: 800; font-family: monospace; letter-spacing: 1px; }
+        .tt-timerMini .tt-tmBig { font-size: 24px; font-weight: 900; font-family: monospace; letter-spacing: 1.5px; }
 
         .tt-tmCloseBtn { background: #e5e7eb; color: #4b5563; border: none; padding: 6px 12px; border-radius: 12px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         .tt-tmCloseBtn:hover { background: #d1d5db; color: #111; }
