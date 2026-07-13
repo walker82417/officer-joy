@@ -555,6 +555,30 @@ function StudyTimetable() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nowTick, mounted]);
 
+  /* -- protect against older saved state with more than one running session -- */
+  useEffect(() => {
+    if (!mounted) return;
+    setSessions((prev) => {
+      const runningIds = ROWS.filter(
+        (row) => isFocusRow(row) && prev[row.id]?.status === "running",
+      ).map((row) => row.id);
+      if (runningIds.length <= 1) return prev;
+
+      const now = Date.now();
+      const next = { ...prev };
+      runningIds.slice(1).forEach((runningId) => {
+        const st = next[runningId];
+        next[runningId] = {
+          ...st,
+          status: "paused",
+          remaining: st.endTs ? Math.max(Math.round((st.endTs - now) / 1000), 0) : st.remaining,
+          endTs: null,
+        };
+      });
+      return next;
+    });
+  }, [mounted]);
+
   /* -- pending auto-check every 60s -- */
   useEffect(() => {
     if (!mounted) return;
@@ -637,22 +661,41 @@ function StudyTimetable() {
      ========================================================= */
   const startSession = useCallback(
     (id: number) => {
+      const currentSession = sessions[id];
+      const anotherSessionRunning = Object.entries(sessions).some(
+        ([sessionId, session]) => Number(sessionId) !== id && session.status === "running",
+      );
+      if (
+        anotherSessionRunning ||
+        !currentSession ||
+        (currentSession.status !== "notstarted" && currentSession.status !== "paused")
+      ) {
+        return;
+      }
+
       setSessions((prev) => {
+        const anotherRunningInLatestState = Object.entries(prev).some(
+          ([sessionId, session]) => Number(sessionId) !== id && session.status === "running",
+        );
         const st = prev[id];
-        if (st.status === "notstarted" || st.status === "paused") {
-          playStartChime();
-          return {
-            ...prev,
-            [id]: {
-              ...st,
-              status: "running",
-              endTs: Date.now() + st.remaining * 1000,
-              warned: false,
-            },
-          };
+        if (
+          anotherRunningInLatestState ||
+          !st ||
+          (st.status !== "notstarted" && st.status !== "paused")
+        ) {
+          return prev;
         }
-        return prev;
+        return {
+          ...prev,
+          [id]: {
+            ...st,
+            status: "running",
+            endTs: Date.now() + st.remaining * 1000,
+            warned: false,
+          },
+        };
       });
+      playStartChime();
       setPending((p) => p.filter((x) => x !== id));
       const row = ROWS.find((r) => r.id === id);
       void sendAutomationEvent({
@@ -662,7 +705,7 @@ function StudyTimetable() {
         payload: automationSnapshot({ row }),
       });
     },
-    [automationSnapshot, playStartChime, sendAutomationEvent],
+    [automationSnapshot, playStartChime, sendAutomationEvent, sessions],
   );
 
   const pauseSession = useCallback(
@@ -1242,7 +1285,9 @@ function StudyTimetable() {
                     const pillLabel =
                       st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase();
                     const critical = st.status === "running" && st.remaining <= 5;
-                    const disableStart = st.status === "running" || st.status === "completed";
+                    const anotherSessionRunning = Boolean(runningRow && runningRow.id !== r.id);
+                    const disableStart =
+                      st.status === "running" || st.status === "completed" || anotherSessionRunning;
                     const disablePause = st.status !== "running";
                     const disableDone =
                       st.status === "completed" ||
@@ -1265,7 +1310,9 @@ function StudyTimetable() {
                         <td className="tt-actBtns">
                           <button
                             className="tt-b-start"
-                            title="Start"
+                            title={
+                              anotherSessionRunning ? "Pause the running session first" : "Start"
+                            }
                             disabled={disableStart}
                             onClick={() => startSession(r.id)}
                           >
