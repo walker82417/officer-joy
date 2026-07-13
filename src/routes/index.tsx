@@ -281,6 +281,28 @@ function save<T>(key: string, val: T) {
   }
 }
 
+function getAutomationFromUrl() {
+  if (typeof window === "undefined") return { url: "", secret: "", enabled: false };
+  const params = new URLSearchParams(window.location.search);
+  const url = params.get("automationUrl") || params.get("appsScriptUrl") || "";
+  const secret = params.get("automationSecret") || params.get("secret") || "";
+  const enabledParam = params.get("automationEnabled") || params.get("autoSync");
+  return {
+    url,
+    secret,
+    enabled: enabledParam === "1" || enabledParam === "true" || Boolean(url && secret),
+  };
+}
+
+function buildAutomationUrl(url: string, secret: string, enabled: boolean) {
+  if (typeof window === "undefined") return "";
+  const nextUrl = new URL(window.location.href);
+  nextUrl.searchParams.set("automationUrl", url.trim());
+  nextUrl.searchParams.set("automationSecret", secret.trim());
+  nextUrl.searchParams.set("automationEnabled", enabled ? "1" : "0");
+  return nextUrl.toString();
+}
+
 /* =============================================================
    HELPERS
    ============================================================= */
@@ -343,6 +365,7 @@ function StudyTimetable() {
   const [automationEnabled, setAutomationEnabled] = useState(false);
   const [automationSecret, setAutomationSecret] = useState("");
   const [automationStatus, setAutomationStatus] = useState<AutomationStatus>("not-configured");
+  const [automationLinkStatus, setAutomationLinkStatus] = useState("");
 
   const soundOnRef = useRef(true);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -367,9 +390,10 @@ function StudyTimetable() {
     setCompletedLog(load("tt_completedLog", []));
     setTimeShift(load("tt_shift_" + todayKey(), 0));
     soundOnRef.current = load("tt_soundOn", true);
-    const savedAutomationUrl = load("tt_automation_url", "");
-    const savedAutomationEnabled = load("tt_automation_enabled", false);
-    const savedAutomationSecret = load("tt_automation_secret", "");
+    const urlAutomation = getAutomationFromUrl();
+    const savedAutomationUrl = urlAutomation.url || load("tt_automation_url", "");
+    const savedAutomationSecret = urlAutomation.secret || load("tt_automation_secret", "");
+    const savedAutomationEnabled = urlAutomation.enabled || load("tt_automation_enabled", false);
     setAutomationUrl(savedAutomationUrl);
     setAutomationEnabled(savedAutomationEnabled);
     setAutomationSecret(savedAutomationSecret);
@@ -456,41 +480,6 @@ function StudyTimetable() {
     [checklist, completedLog, examDates, heatmapLog, pending, sessions, timeShift],
   );
 
-  const sendAutomationSnapshot = useCallback(
-    (type: "auto_snapshot" | "manual_snapshot") => {
-      save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
-      void sendAutomationEvent({
-        type,
-        date: todayKey(),
-        sentAt: new Date().toISOString(),
-        payload: automationSnapshot({ report: buildMissionReport() }),
-      });
-    },
-    [automationSnapshot, buildMissionReport, sendAutomationEvent],
-  );
-
-  useEffect(() => {
-    if (!mounted || !automationEnabled || !automationUrl.trim() || !automationSecret.trim()) return;
-
-    const syncIfDue = (force = false) => {
-      const key = `tt_last_auto_snapshot_${todayKey()}`;
-      const lastSyncedAt = load(key, 0);
-      if (!force && Date.now() - lastSyncedAt < AUTO_SNAPSHOT_INTERVAL_MS) return;
-      sendAutomationSnapshot("auto_snapshot");
-    };
-
-    syncIfDue();
-    const intervalId = window.setInterval(() => syncIfDue(), AUTO_SNAPSHOT_INTERVAL_MS);
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "hidden") syncIfDue(true);
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => {
-      window.clearInterval(intervalId);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-    };
-  }, [automationEnabled, automationSecret, automationUrl, mounted, sendAutomationSnapshot]);
-
   /* -- sound -- */
   const playTone = useCallback(
     (freq: number, duration: number, vol: number, type: OscillatorType = "sine") => {
@@ -565,6 +554,30 @@ function StudyTimetable() {
     toComplete.forEach((id) => completeSession(id, true));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nowTick, mounted]);
+
+  /* -- protect against older saved state with more than one running session -- */
+  useEffect(() => {
+    if (!mounted) return;
+    setSessions((prev) => {
+      const runningIds = ROWS.filter(
+        (row) => isFocusRow(row) && prev[row.id]?.status === "running",
+      ).map((row) => row.id);
+      if (runningIds.length <= 1) return prev;
+
+      const now = Date.now();
+      const next = { ...prev };
+      runningIds.slice(1).forEach((runningId) => {
+        const st = next[runningId];
+        next[runningId] = {
+          ...st,
+          status: "paused",
+          remaining: st.endTs ? Math.max(Math.round((st.endTs - now) / 1000), 0) : st.remaining,
+          endTs: null,
+        };
+      });
+      return next;
+    });
+  }, [mounted]);
 
   /* -- pending auto-check every 60s -- */
   useEffect(() => {
@@ -648,22 +661,41 @@ function StudyTimetable() {
      ========================================================= */
   const startSession = useCallback(
     (id: number) => {
+      const currentSession = sessions[id];
+      const anotherSessionRunning = Object.entries(sessions).some(
+        ([sessionId, session]) => Number(sessionId) !== id && session.status === "running",
+      );
+      if (
+        anotherSessionRunning ||
+        !currentSession ||
+        (currentSession.status !== "notstarted" && currentSession.status !== "paused")
+      ) {
+        return;
+      }
+
       setSessions((prev) => {
+        const anotherRunningInLatestState = Object.entries(prev).some(
+          ([sessionId, session]) => Number(sessionId) !== id && session.status === "running",
+        );
         const st = prev[id];
-        if (st.status === "notstarted" || st.status === "paused") {
-          playStartChime();
-          return {
-            ...prev,
-            [id]: {
-              ...st,
-              status: "running",
-              endTs: Date.now() + st.remaining * 1000,
-              warned: false,
-            },
-          };
+        if (
+          anotherRunningInLatestState ||
+          !st ||
+          (st.status !== "notstarted" && st.status !== "paused")
+        ) {
+          return prev;
         }
-        return prev;
+        return {
+          ...prev,
+          [id]: {
+            ...st,
+            status: "running",
+            endTs: Date.now() + st.remaining * 1000,
+            warned: false,
+          },
+        };
       });
+      playStartChime();
       setPending((p) => p.filter((x) => x !== id));
       const row = ROWS.find((r) => r.id === id);
       void sendAutomationEvent({
@@ -673,7 +705,7 @@ function StudyTimetable() {
         payload: automationSnapshot({ row }),
       });
     },
-    [automationSnapshot, playStartChime, sendAutomationEvent],
+    [automationSnapshot, playStartChime, sendAutomationEvent, sessions],
   );
 
   const pauseSession = useCallback(
@@ -731,24 +763,51 @@ function StudyTimetable() {
 
   const extendSession = useCallback(
     (id: number, minutes: number) => {
+      if (minutes <= 0) return;
       const row = ROWS.find((r) => r.id === id);
       const deductionTarget =
         row?.cat === "technical" ? "English / GS flexible pool" : "future timetable shift";
+      const currentSession = sessions[id];
+      const reopenedCompletedSession = currentSession?.status === "completed";
+
       setSessions((prev) => {
         const st = prev[id];
-        const remaining = st.remaining + minutes * 60;
-        const endTs = st.status === "running" ? Date.now() + remaining * 1000 : null;
-        return { ...prev, [id]: { ...st, remaining, warned: false, endTs } };
+        const remaining = (reopenedCompletedSession ? 0 : st.remaining) + minutes * 60;
+        const status: SessionStatus = reopenedCompletedSession ? "running" : st.status;
+        const endTs = status === "running" ? Date.now() + remaining * 1000 : null;
+        return { ...prev, [id]: { ...st, status, remaining, warned: false, endTs } };
       });
+
+      if (reopenedCompletedSession) {
+        const hadCompletedLog = completedLog.some(
+          (log) => log.date === todayKey() && log.rowId === id,
+        );
+        if (hadCompletedLog) {
+          setCompletedLog((prev) =>
+            prev.filter((log) => !(log.date === todayKey() && log.rowId === id)),
+          );
+          setHeatmapLog((heatmap) => ({
+            ...heatmap,
+            [todayKey()]: Math.max((heatmap[todayKey()] || 1) - 1, 0),
+          }));
+        }
+        const checklistItem = ROW_CHECKLIST_MAP[id];
+        if (checklistItem) {
+          setChecklist((prev) => ({ ...prev, [checklistItem]: false }));
+        }
+      }
+
       setTimeShift((t) => t + minutes);
       void sendAutomationEvent({
-        type: "session_extended",
+        type: reopenedCompletedSession
+          ? "completed_session_reopened_and_extended"
+          : "session_extended",
         date: todayKey(),
         sentAt: new Date().toISOString(),
-        payload: automationSnapshot({ row, minutes, deductionTarget }),
+        payload: automationSnapshot({ row, minutes, deductionTarget, reopenedCompletedSession }),
       });
     },
-    [automationSnapshot, sendAutomationEvent],
+    [automationSnapshot, completedLog, sendAutomationEvent, sessions],
   );
 
   const saveExamDate = useCallback(
@@ -925,6 +984,41 @@ function StudyTimetable() {
     };
   }, [completedLog, streak, todayIdx, totalFocus]);
 
+  const sendAutomationSnapshot = useCallback(
+    (type: "auto_snapshot" | "manual_snapshot") => {
+      save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
+      void sendAutomationEvent({
+        type,
+        date: todayKey(),
+        sentAt: new Date().toISOString(),
+        payload: automationSnapshot({ report: buildMissionReport() }),
+      });
+    },
+    [automationSnapshot, buildMissionReport, sendAutomationEvent],
+  );
+
+  useEffect(() => {
+    if (!mounted || !automationEnabled || !automationUrl.trim() || !automationSecret.trim()) return;
+
+    const syncIfDue = (force = false) => {
+      const key = `tt_last_auto_snapshot_${todayKey()}`;
+      const lastSyncedAt = load(key, 0);
+      if (!force && Date.now() - lastSyncedAt < AUTO_SNAPSHOT_INTERVAL_MS) return;
+      sendAutomationSnapshot("auto_snapshot");
+    };
+
+    syncIfDue();
+    const intervalId = window.setInterval(() => syncIfDue(), AUTO_SNAPSHOT_INTERVAL_MS);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") syncIfDue(true);
+    };
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [automationEnabled, automationSecret, automationUrl, mounted, sendAutomationSnapshot]);
+
   const openMissionReportEmail = useCallback(() => {
     const report = buildMissionReport();
     const mailto = `mailto:${EMAIL_REPORT_RECIPIENTS.join(",")}?subject=${encodeURIComponent(
@@ -933,12 +1027,29 @@ function StudyTimetable() {
     window.location.href = mailto;
   }, [buildMissionReport]);
 
+  const copyAutomationLink = useCallback(async () => {
+    if (!automationUrl.trim() || !automationSecret.trim()) {
+      setAutomationLinkStatus("Paste URL + secret first");
+      return;
+    }
+    const link = buildAutomationUrl(automationUrl, automationSecret, automationEnabled);
+    try {
+      await navigator.clipboard.writeText(link);
+      setAutomationLinkStatus("Copied Lively URL");
+    } catch {
+      window.prompt("Copy this URL into Lively Wallpaper", link);
+      setAutomationLinkStatus("Copy the shown URL");
+    }
+  }, [automationEnabled, automationSecret, automationUrl]);
+
   useEffect(() => {
     if (!mounted) return;
     const reportKey = `tt_report_sent_${todayKey()}`;
     const checkReportTime = () => {
       const current = new Date();
-      if (current.getHours() === 22 && current.getMinutes() === 15 && !load(reportKey, false)) {
+      const reportDue =
+        current.getHours() > 22 || (current.getHours() === 22 && current.getMinutes() >= 15);
+      if (reportDue && !load(reportKey, false)) {
         save(reportKey, true);
         if (automationEnabled && automationUrl.trim() && automationSecret.trim()) {
           void sendAutomationEvent({
@@ -1119,9 +1230,13 @@ function StudyTimetable() {
               <button onClick={() => sendAutomationSnapshot("manual_snapshot")}>
                 Sync Snapshot
               </button>
+              <button onClick={copyAutomationLink}>Copy Lively URL</button>
               <span className={`tt-autoStatus ${automationStatus}`}>
                 {automationStatus.replace("-", " ")}
               </span>
+              {automationLinkStatus ? (
+                <span className="tt-autoHint">{automationLinkStatus}</span>
+              ) : null}
             </div>
           </div>
 
@@ -1170,7 +1285,9 @@ function StudyTimetable() {
                     const pillLabel =
                       st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase();
                     const critical = st.status === "running" && st.remaining <= 5;
-                    const disableStart = st.status === "running" || st.status === "completed";
+                    const anotherSessionRunning = Boolean(runningRow && runningRow.id !== r.id);
+                    const disableStart =
+                      st.status === "running" || st.status === "completed" || anotherSessionRunning;
                     const disablePause = st.status !== "running";
                     const disableDone =
                       st.status === "completed" ||
@@ -1193,7 +1310,9 @@ function StudyTimetable() {
                         <td className="tt-actBtns">
                           <button
                             className="tt-b-start"
-                            title="Start"
+                            title={
+                              anotherSessionRunning ? "Pause the running session first" : "Start"
+                            }
                             disabled={disableStart}
                             onClick={() => startSession(r.id)}
                           >
@@ -1209,8 +1328,11 @@ function StudyTimetable() {
                           </button>
                           <button
                             className="tt-b-ext"
-                            title="Extend"
-                            disabled={st.status === "completed"}
+                            title={
+                              st.status === "completed"
+                                ? "Reopen completed session and extend"
+                                : "Extend"
+                            }
                             onClick={(ev) =>
                               setExtendFor({ id: r.id, x: ev.clientX, y: ev.clientY })
                             }
@@ -1342,9 +1464,9 @@ function StudyTimetable() {
                   <div className="tt-card tt-emailCard">
                     <h3>ZERO-COST AUTO EMAIL</h3>
                     <p>
-                      Apps Script sync for automated Sheets + Gmail reports. URL and secret stay
-                      saved in this browser after restart unless site data is cleared. Manual email
-                      stays as fallback.
+                      Apps Script sync for automated Sheets + Gmail reports. If Lively/Edge keeps
+                      forgetting local storage, paste once and use Copy Lively URL so the setup is
+                      restored from the wallpaper URL itself.
                     </p>
                     <input
                       aria-label="Apps Script Web App URL"
@@ -1395,8 +1517,12 @@ function StudyTimetable() {
                       <button onClick={() => sendAutomationSnapshot("manual_snapshot")}>
                         Sync Snapshot
                       </button>
+                      <button onClick={copyAutomationLink}>Copy Lively URL</button>
                       <button onClick={openMissionReportEmail}>Manual Email</button>
                     </div>
+                    {automationLinkStatus ? (
+                      <p className="tt-autoHint">{automationLinkStatus}</p>
+                    ) : null}
                   </div>
                 </div>
 
