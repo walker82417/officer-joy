@@ -226,7 +226,12 @@ const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
   16: "Sleep Before 10 PM",
 };
 const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
-const AUTO_SNAPSHOT_INTERVAL_MS = 15 * 60 * 1000;
+const AUTOMATION_WEB_APP_URL =
+  "https://script.google.com/macros/s/AKfycby3PeJjHY-DaFSjknr5K4gyy6JjWLdMJR_ZWYwKPhjbbkFOdiQgExY6rp_M7z3Vf6yq/exec";
+const AUTOMATION_SHARED_SECRET = "officerjoy27-28";
+const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 1000;
+const AUTOMATION_QUEUE_KEY = "tt_automation_offline_queue";
+const MAX_AUTOMATION_QUEUE_ITEMS = 500;
 const QUOTES = [
   "The harder you work for something, the greater you'll feel when you achieve it.",
   "Don't stop when you're tired. Stop when you're done.",
@@ -262,7 +267,13 @@ type AutomationPayload = {
 /* =============================================================
    STORAGE
    ============================================================= */
-const todayKey = () => new Date().toISOString().slice(0, 10);
+const todayKey = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 function load<T>(key: string, def: T): T {
   if (typeof window === "undefined") return def;
   try {
@@ -281,26 +292,41 @@ function save<T>(key: string, val: T) {
   }
 }
 
-function getAutomationFromUrl() {
-  if (typeof window === "undefined") return { url: "", secret: "", enabled: false };
-  const params = new URLSearchParams(window.location.search);
-  const url = params.get("automationUrl") || params.get("appsScriptUrl") || "";
-  const secret = params.get("automationSecret") || params.get("secret") || "";
-  const enabledParam = params.get("automationEnabled") || params.get("autoSync");
-  return {
-    url,
-    secret,
-    enabled: enabledParam === "1" || enabledParam === "true" || Boolean(url && secret),
-  };
+function reconcileSessionsWithCompletedLogs(
+  sessions: Record<number, SessionRec>,
+  completedLogs: CompletedLog[],
+  dateKey: string,
+) {
+  const out = { ...sessions };
+  completedLogs
+    .filter((log) => log.date === dateKey)
+    .forEach((log) => {
+      const row = ROWS.find((r) => r.id === log.rowId);
+      if (!row || !isFocusRow(row)) return;
+      out[log.rowId] = {
+        ...(out[log.rowId] || { remaining: row.dur * 60, endTs: null, warned: false }),
+        status: "completed",
+        remaining: 0,
+        endTs: null,
+        warned: false,
+      };
+    });
+  return out;
 }
 
-function buildAutomationUrl(url: string, secret: string, enabled: boolean) {
-  if (typeof window === "undefined") return "";
-  const nextUrl = new URL(window.location.href);
-  nextUrl.searchParams.set("automationUrl", url.trim());
-  nextUrl.searchParams.set("automationSecret", secret.trim());
-  nextUrl.searchParams.set("automationEnabled", enabled ? "1" : "0");
-  return nextUrl.toString();
+function queueAutomationPayload(payload: AutomationPayload) {
+  const queued = load<AutomationPayload[]>(AUTOMATION_QUEUE_KEY, []);
+  save(AUTOMATION_QUEUE_KEY, [...queued, payload].slice(-MAX_AUTOMATION_QUEUE_ITEMS));
+}
+
+async function postAutomationPayload(payload: AutomationPayload) {
+  await fetch(AUTOMATION_WEB_APP_URL, {
+    method: "POST",
+    mode: "no-cors",
+    keepalive: true,
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ ...payload, secret: AUTOMATION_SHARED_SECRET }),
+  });
 }
 
 /* =============================================================
@@ -361,11 +387,7 @@ function StudyTimetable() {
   const [timeShift, setTimeShift] = useState(0);
   const [editingExam, setEditingExam] = useState<ExamKey | null>(null);
   const [extendFor, setExtendFor] = useState<{ id: number; x: number; y: number } | null>(null);
-  const [automationUrl, setAutomationUrl] = useState("");
-  const [automationEnabled, setAutomationEnabled] = useState(false);
-  const [automationSecret, setAutomationSecret] = useState("");
-  const [automationStatus, setAutomationStatus] = useState<AutomationStatus>("not-configured");
-  const [automationLinkStatus, setAutomationLinkStatus] = useState("");
+  const [automationStatus, setAutomationStatus] = useState<AutomationStatus>("ready");
 
   const soundOnRef = useRef(true);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -373,35 +395,26 @@ function StudyTimetable() {
 
   /* -- hydrate from localStorage after mount -- */
   useEffect(() => {
+    const dateKey = todayKey();
     setExamDates(load("tt_examDates", EXAMS_DEFAULT));
-    const s = load<Record<number, SessionRec>>("tt_sessions_" + todayKey(), initSessions());
+    const completed = load<CompletedLog[]>("tt_completedLog", []);
+    const s = load<Record<number, SessionRec>>("tt_sessions_" + dateKey, initSessions());
     ROWS.forEach((r) => {
       if (!s[r.id])
         s[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false };
     });
-    setSessions(s);
-    const c = load<Record<string, boolean>>("tt_checklist_" + todayKey(), initChecklist());
+    setSessions(reconcileSessionsWithCompletedLogs(s, completed, dateKey));
+    const c = load<Record<string, boolean>>("tt_checklist_" + dateKey, initChecklist());
     CHECKLIST_ITEMS.forEach((it) => {
       if (c[it] === undefined) c[it] = false;
     });
     setChecklist(c);
-    setPending(load("tt_pending_" + todayKey(), []));
+    setPending(load("tt_pending_" + dateKey, []));
     setHeatmapLog(load("tt_heatmap", {}));
-    setCompletedLog(load("tt_completedLog", []));
-    setTimeShift(load("tt_shift_" + todayKey(), 0));
+    setCompletedLog(completed);
+    setTimeShift(load("tt_shift_" + dateKey, 0));
     soundOnRef.current = load("tt_soundOn", true);
-    const urlAutomation = getAutomationFromUrl();
-    const savedAutomationUrl = urlAutomation.url || load("tt_automation_url", "");
-    const savedAutomationSecret = urlAutomation.secret || load("tt_automation_secret", "");
-    const savedAutomationEnabled = urlAutomation.enabled || load("tt_automation_enabled", false);
-    setAutomationUrl(savedAutomationUrl);
-    setAutomationEnabled(savedAutomationEnabled);
-    setAutomationSecret(savedAutomationSecret);
-    setAutomationStatus(
-      savedAutomationUrl && savedAutomationEnabled && savedAutomationSecret
-        ? "ready"
-        : "not-configured",
-    );
+    setAutomationStatus("ready");
     setMounted(true);
   }, []);
 
@@ -427,42 +440,18 @@ function StudyTimetable() {
   useEffect(() => {
     if (mounted) save("tt_shift_" + todayKey(), timeShift);
   }, [timeShift, mounted]);
-  useEffect(() => {
-    if (mounted) save("tt_automation_url", automationUrl.trim());
-  }, [automationUrl, mounted]);
-  useEffect(() => {
-    if (mounted) save("tt_automation_enabled", automationEnabled);
-  }, [automationEnabled, mounted]);
-  useEffect(() => {
-    if (mounted) save("tt_automation_secret", automationSecret.trim());
-  }, [automationSecret, mounted]);
-
   /* -- zero-cost Google Apps Script automation sync -- */
-  const sendAutomationEvent = useCallback(
-    async (payload: AutomationPayload) => {
-      const url = automationUrl.trim();
-      const secret = automationSecret.trim();
-      if (!automationEnabled || !url || !secret) {
-        setAutomationStatus("not-configured");
-        return;
-      }
-      setAutomationStatus("syncing");
-      try {
-        await fetch(url, {
-          method: "POST",
-          mode: "no-cors",
-          keepalive: true,
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify({ ...payload, secret }),
-        });
-        setAutomationStatus("synced");
-      } catch (error) {
-        console.error("Apps Script automation sync failed", error);
-        setAutomationStatus("error");
-      }
-    },
-    [automationEnabled, automationSecret, automationUrl],
-  );
+  const sendAutomationEvent = useCallback(async (payload: AutomationPayload) => {
+    setAutomationStatus("syncing");
+    try {
+      await postAutomationPayload(payload);
+      setAutomationStatus("synced");
+    } catch (error) {
+      console.error("Apps Script automation sync failed; queued locally for retry", error);
+      queueAutomationPayload(payload);
+      setAutomationStatus("error");
+    }
+  }, []);
 
   const automationSnapshot = useCallback(
     (extra: Record<string, unknown> = {}) => ({
@@ -735,15 +724,22 @@ function StudyTimetable() {
       if (!row) return;
       setSessions((prev) => {
         if (prev[id].status === "completed") return prev;
-        return { ...prev, [id]: { ...prev[id], status: "completed", remaining: 0, endTs: null } };
+        const next = {
+          ...prev,
+          [id]: { ...prev[id], status: "completed", remaining: 0, endTs: null },
+        };
+        save("tt_sessions_" + todayKey(), next);
+        return next;
       });
       setPending((p) => p.filter((x) => x !== id));
       setCompletedLog((prev) => {
         if (prev.some((l) => l.rowId === id && l.date === todayKey())) return prev;
-        return [
+        const next = [
           ...prev,
           { date: todayKey(), rowId: id, cat: row.cat, durMin: row.dur, ts: Date.now() },
         ];
+        save("tt_completedLog", next);
+        return next;
       });
       setHeatmapLog((prev) => ({ ...prev, [todayKey()]: (prev[todayKey()] || 0) + 1 }));
       const checklistItem = ROW_CHECKLIST_MAP[id];
@@ -985,22 +981,42 @@ function StudyTimetable() {
   }, [completedLog, streak, todayIdx, totalFocus]);
 
   const sendAutomationSnapshot = useCallback(
-    (type: "auto_snapshot" | "manual_snapshot") => {
+    (type: "auto_snapshot" | "manual_snapshot" | "daily_report_snapshot") => {
       save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
       void sendAutomationEvent({
         type,
         date: todayKey(),
         sentAt: new Date().toISOString(),
-        payload: automationSnapshot({ report: buildMissionReport() }),
+        payload: automationSnapshot({
+          report: buildMissionReport(),
+          emailReport: type === "daily_report_snapshot",
+        }),
       });
     },
     [automationSnapshot, buildMissionReport, sendAutomationEvent],
   );
 
   useEffect(() => {
-    if (!mounted || !automationEnabled || !automationUrl.trim() || !automationSecret.trim()) return;
+    if (!mounted) return;
+
+    const flushQueuedAutomation = async () => {
+      const queued = load<AutomationPayload[]>(AUTOMATION_QUEUE_KEY, []);
+      if (!queued.length) return;
+      setAutomationStatus("syncing");
+      try {
+        for (const queuedPayload of queued) {
+          await postAutomationPayload(queuedPayload);
+        }
+        save(AUTOMATION_QUEUE_KEY, []);
+        setAutomationStatus("synced");
+      } catch (error) {
+        console.error("Queued Apps Script automation retry failed", error);
+        setAutomationStatus("error");
+      }
+    };
 
     const syncIfDue = (force = false) => {
+      void flushQueuedAutomation();
       const key = `tt_last_auto_snapshot_${todayKey()}`;
       const lastSyncedAt = load(key, 0);
       if (!force && Date.now() - lastSyncedAt < AUTO_SNAPSHOT_INTERVAL_MS) return;
@@ -1017,7 +1033,7 @@ function StudyTimetable() {
       window.clearInterval(intervalId);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [automationEnabled, automationSecret, automationUrl, mounted, sendAutomationSnapshot]);
+  }, [mounted, sendAutomationSnapshot]);
 
   const openMissionReportEmail = useCallback(() => {
     const report = buildMissionReport();
@@ -1026,21 +1042,6 @@ function StudyTimetable() {
     )}&body=${encodeURIComponent(report.body)}`;
     window.location.href = mailto;
   }, [buildMissionReport]);
-
-  const copyAutomationLink = useCallback(async () => {
-    if (!automationUrl.trim() || !automationSecret.trim()) {
-      setAutomationLinkStatus("Paste URL + secret first");
-      return;
-    }
-    const link = buildAutomationUrl(automationUrl, automationSecret, automationEnabled);
-    try {
-      await navigator.clipboard.writeText(link);
-      setAutomationLinkStatus("Copied Lively URL");
-    } catch {
-      window.prompt("Copy this URL into Lively Wallpaper", link);
-      setAutomationLinkStatus("Copy the shown URL");
-    }
-  }, [automationEnabled, automationSecret, automationUrl]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -1051,13 +1052,8 @@ function StudyTimetable() {
         current.getHours() > 22 || (current.getHours() === 22 && current.getMinutes() >= 15);
       if (reportDue && !load(reportKey, false)) {
         save(reportKey, true);
-        if (automationEnabled && automationUrl.trim() && automationSecret.trim()) {
-          void sendAutomationEvent({
-            type: "daily_report_snapshot",
-            date: todayKey(),
-            sentAt: new Date().toISOString(),
-            payload: automationSnapshot({ report: buildMissionReport() }),
-          });
+        if (AUTOMATION_WEB_APP_URL && AUTOMATION_SHARED_SECRET) {
+          sendAutomationSnapshot("daily_report_snapshot");
         } else {
           openMissionReportEmail();
         }
@@ -1067,16 +1063,7 @@ function StudyTimetable() {
     checkReportTime();
     const id = window.setInterval(checkReportTime, 30000);
     return () => window.clearInterval(id);
-  }, [
-    automationEnabled,
-    automationSecret,
-    automationSnapshot,
-    automationUrl,
-    buildMissionReport,
-    mounted,
-    openMissionReportEmail,
-    sendAutomationEvent,
-  ]);
+  }, [mounted, openMissionReportEmail, sendAutomationSnapshot]);
 
   /* =========================================================
      RENDER
@@ -1181,62 +1168,19 @@ function StudyTimetable() {
               <div className="tt-clock">{clockLine}</div>
             </div>
             <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
-            <div className="tt-autoSetupBar">
-              <div className="tt-autoSetupTitle">
-                ZERO-COST AUTO EMAIL SETUP • SAVED ON THIS DEVICE
-              </div>
-              <input
-                aria-label="Top Apps Script Web App URL"
-                placeholder="Paste Apps Script Web App URL here"
-                value={automationUrl}
-                onChange={(event) => {
-                  setAutomationUrl(event.target.value);
-                  setAutomationStatus(
-                    event.target.value.trim() && automationEnabled && automationSecret.trim()
-                      ? "ready"
-                      : "not-configured",
-                  );
-                }}
-              />
-              <input
-                aria-label="Top Apps Script shared secret"
-                placeholder="Paste private shared secret"
-                type="password"
-                value={automationSecret}
-                onChange={(event) => {
-                  setAutomationSecret(event.target.value);
-                  setAutomationStatus(
-                    event.target.value.trim() && automationEnabled && automationUrl.trim()
-                      ? "ready"
-                      : "not-configured",
-                  );
-                }}
-              />
-              <label>
-                <input
-                  type="checkbox"
-                  checked={automationEnabled}
-                  onChange={(event) => {
-                    setAutomationEnabled(event.target.checked);
-                    setAutomationStatus(
-                      event.target.checked && automationUrl.trim() && automationSecret.trim()
-                        ? "ready"
-                        : "not-configured",
-                    );
-                  }}
-                />
-                Enable
-              </label>
-              <button onClick={() => sendAutomationSnapshot("manual_snapshot")}>
-                Sync Snapshot
-              </button>
-              <button onClick={copyAutomationLink}>Copy Lively URL</button>
-              <span className={`tt-autoStatus ${automationStatus}`}>
-                {automationStatus.replace("-", " ")}
+            <div
+              className={`tt-syncIndicator ${automationStatus}`}
+              title="Google Apps Script auto-sync status"
+            >
+              <span className="tt-syncDot" aria-hidden="true" />
+              <span>
+                {automationStatus === "synced"
+                  ? "Connected & synced"
+                  : automationStatus === "syncing" || automationStatus === "ready"
+                    ? "Connecting & syncing"
+                    : "Not connected / data not synced"}
               </span>
-              {automationLinkStatus ? (
-                <span className="tt-autoHint">{automationLinkStatus}</span>
-              ) : null}
+              <button onClick={() => sendAutomationSnapshot("manual_snapshot")}>Sync now</button>
             </div>
           </div>
 
@@ -1462,67 +1406,25 @@ function StudyTimetable() {
                     </div>
                   </div>
                   <div className="tt-card tt-emailCard">
-                    <h3>ZERO-COST AUTO EMAIL</h3>
+                    <h3>AUTO EMAIL SYNC</h3>
                     <p>
-                      Apps Script sync for automated Sheets + Gmail reports. If Lively/Edge keeps
-                      forgetting local storage, paste once and use Copy Lively URL so the setup is
-                      restored from the wallpaper URL itself.
+                      Google Apps Script is configured inside the app code. Data syncs every 5
+                      seconds, and the daily email report is requested automatically at 10:15 PM.
                     </p>
-                    <input
-                      aria-label="Apps Script Web App URL"
-                      placeholder="Paste Apps Script Web App URL"
-                      value={automationUrl}
-                      onChange={(event) => {
-                        setAutomationUrl(event.target.value);
-                        setAutomationStatus(
-                          event.target.value.trim() && automationEnabled && automationSecret.trim()
-                            ? "ready"
-                            : "not-configured",
-                        );
-                      }}
-                    />
-                    <input
-                      aria-label="Apps Script shared secret"
-                      placeholder="Paste private shared secret"
-                      type="password"
-                      value={automationSecret}
-                      onChange={(event) => {
-                        setAutomationSecret(event.target.value);
-                        setAutomationStatus(
-                          event.target.value.trim() && automationEnabled && automationUrl.trim()
-                            ? "ready"
-                            : "not-configured",
-                        );
-                      }}
-                    />
-                    <label className="tt-autoToggle">
-                      <input
-                        type="checkbox"
-                        checked={automationEnabled}
-                        onChange={(event) => {
-                          setAutomationEnabled(event.target.checked);
-                          setAutomationStatus(
-                            event.target.checked && automationUrl.trim() && automationSecret.trim()
-                              ? "ready"
-                              : "not-configured",
-                          );
-                        }}
-                      />
-                      Enable auto sync
-                    </label>
                     <div className={`tt-autoStatus ${automationStatus}`}>
-                      Status: {automationStatus.replace("-", " ")}
+                      <span className="tt-syncDot" aria-hidden="true" />
+                      {automationStatus === "synced"
+                        ? "Connected & synced data"
+                        : automationStatus === "syncing" || automationStatus === "ready"
+                          ? "Connecting & syncing data"
+                          : "Not connected & data not synced"}
                     </div>
                     <div className="tt-emailActions">
                       <button onClick={() => sendAutomationSnapshot("manual_snapshot")}>
-                        Sync Snapshot
+                        Sync Now
                       </button>
-                      <button onClick={copyAutomationLink}>Copy Lively URL</button>
                       <button onClick={openMissionReportEmail}>Manual Email</button>
                     </div>
-                    {automationLinkStatus ? (
-                      <p className="tt-autoHint">{automationLinkStatus}</p>
-                    ) : null}
                   </div>
                 </div>
 
