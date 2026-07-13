@@ -227,7 +227,7 @@ const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
 };
 const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 const AUTOMATION_WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycby3PeJjHY-DaFSjknr5K4gyy6JjWLdMJR_ZWYwKPhjbbkFOdiQgExY6rp_M7z3Vf6yq/exec";
+  "https://script.google.com/macros/s/AKfycbzf_EcG4IuvbpR6qH0yIS27RiwsMRYxFQePh0j3KpZ8B2IzG9O9rOuafMF8HiZNlVFr/exec";
 const AUTOMATION_SHARED_SECRET = "officerjoy27-28";
 const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 1000;
 const QUOTES = [
