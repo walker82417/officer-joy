@@ -174,7 +174,7 @@ function initChecklist(): Record<string, boolean> {
    ============================================================= */
 function StudyTimetable() {
   const [mounted, setMounted] = useState(false);
-  const [initialSyncDone, setInitialSyncDone] = useState(false); // The Cloud Lock
+  const [initialSyncDone, setInitialSyncDone] = useState(false);
   const [nowTick, setNowTick] = useState(0);
   const [examDates, setExamDates] = useState(EXAMS_DEFAULT);
   const [sessions, setSessions] = useState<Record<number, SessionRec>>(initSessions);
@@ -190,7 +190,6 @@ function StudyTimetable() {
   const [deductId, setDeductId] = useState<number | 'none'>('none');
   const [timerMinimized, setTimerMinimized] = useState(false);
   
-  // Custom status text to show EXACTLY what is failing if needed
   const [automationStatus, setAutomationStatus] = useState<AutomationStatus>("ready");
   const [statusMessage, setStatusMessage] = useState("Connecting & pulling cloud state...");
 
@@ -226,35 +225,31 @@ function StudyTimetable() {
     const fetchRemoteState = async () => {
       try {
         setAutomationStatus("syncing");
-        setStatusMessage("Connecting & pulling cloud state...");
+        setStatusMessage("Pulling latest cloud state...");
         
         const url = `${AUTOMATION_WEB_APP_URL}?secret=${AUTOMATION_SHARED_SECRET}&t=${Date.now()}`;
         const res = await fetch(url);
-        
-        // Read as text first to intercept Google Login HTML Pages (Incognito mode bug)
         const text = await res.text(); 
         
         let json;
         try {
           json = JSON.parse(text);
         } catch(e) {
-          console.error("Google blocked the sync. Make sure deployment access is set to 'Anyone', not just 'Anyone with Google account'.");
+          console.error("Fetch returned HTML (Google Login). Ensure Apps Script is shared with 'Anyone'.");
           setAutomationStatus("error");
-          setStatusMessage("Google blocked sync. Change Access to 'Anyone' in Apps Script.");
+          setStatusMessage("Google blocked sync. Fix Apps Script Access!");
           return;
         }
 
         if (json.ok && json.hasData && json.snapshot) {
           const snap = json.snapshot;
           
-          // Only pull the snapshot if it belongs to TODAY. If it's yesterday, we want a newborn baby!
           if (snap.date === dateKey) {
             const localLastUpdate = load(`tt_last_auto_snapshot_${dateKey}`, 0);
             const remoteLastUpdate = snap.lastUpdated || 1; 
 
-            // Force sync if local is 0 (Opera Incognito) OR remote is newer
             if (localLastUpdate === 0 || remoteLastUpdate > localLastUpdate) {
-              console.log("Cloud sync applied successfully!");
+              console.log("Cloud sync successfully applied.");
               setSessions(reconcileSessionsWithCompletedLogs(snap.sessions, snap.completedLog || [], dateKey));
               setChecklist(snap.checklist || initChecklist());
               setPending(snap.pending || []);
@@ -736,7 +731,7 @@ function StudyTimetable() {
       const reportDue = current.getHours() > 22 || (current.getHours() === 22 && current.getMinutes() >= 15);
       if (reportDue && !load(reportKey, false)) {
         save(reportKey, true);
-        if (AUTOMATION_WEB_APP_URL && AUTOMATION_SHARED_SECRET) sendAutomationSnapshot("daily_report_snapshot");
+        if (AUTOMATION_WEB_APP_URL) sendAutomationSnapshot("daily_report_snapshot");
         else openMissionReportEmail();
       }
     };
@@ -1029,7 +1024,7 @@ function StudyTimetable() {
             <div className="tt-timerMini" onClick={() => setTimerMinimized(false)} title="Click to open full timer">
               <span className="tt-tmIcon">{active.icon}</span>
               <span className="tt-tmSubj">{active.act}</span>
-              {/* Force solid block background so text cannot disappear */}
+              {/* Force solid block background so text mathematically cannot disappear */}
               <div className="tt-tmBigSolid">
                 {fmtTime(st.remaining)}
               </div>
