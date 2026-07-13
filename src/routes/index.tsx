@@ -227,7 +227,7 @@ const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
 };
 const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 const AUTOMATION_WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycbyFbz6Gf4hcGZfDv0aXKS9wZVm9HobFagMVK6ieL2Y0Iy_NB0vTmztA06_0nmNb0hGl/exec";
+  "https://script.google.com/macros/s/AKfycby3PeJjHY-DaFSjknr5K4gyy6JjWLdMJR_ZWYwKPhjbbkFOdiQgExY6rp_M7z3Vf6yq/exec";
 const AUTOMATION_SHARED_SECRET = "rohan-secure-2026";
 const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 1000;
 const AUTOMATION_QUEUE_KEY = "tt_automation_offline_queue";
@@ -254,6 +254,7 @@ type SessionRec = {
   remaining: number;
   endTs: number | null;
   warned: boolean;
+  durationAllocated?: number; // Added to track extended hours securely
 };
 type CompletedLog = { date: string; rowId: number; cat: Row["cat"]; durMin: number; ts: number };
 type AutomationStatus = "not-configured" | "ready" | "syncing" | "synced" | "error";
@@ -309,6 +310,7 @@ function reconcileSessionsWithCompletedLogs(
         remaining: 0,
         endTs: null,
         warned: false,
+        durationAllocated: log.durMin, // Resync properly allocated times
       };
     });
   return out;
@@ -362,7 +364,7 @@ function countdownParts(dateStr: string) {
 function initSessions(): Record<number, SessionRec> {
   const out: Record<number, SessionRec> = {};
   ROWS.forEach((r) => {
-    out[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false };
+    out[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false, durationAllocated: r.dur };
   });
   return out;
 }
@@ -386,7 +388,15 @@ function StudyTimetable() {
   const [completedLog, setCompletedLog] = useState<CompletedLog[]>([]);
   const [timeShift, setTimeShift] = useState(0);
   const [editingExam, setEditingExam] = useState<ExamKey | null>(null);
-  const [extendFor, setExtendFor] = useState<{ id: number; x: number; y: number } | null>(null);
+  
+  // Advanced Modal Extender UI States
+  const [extendModal, setExtendModal] = useState<{ id: number } | null>(null);
+  const [extendMins, setExtendMins] = useState<number>(15);
+  const [deductId, setDeductId] = useState<number | 'none'>('none');
+  
+  // Timer Minimizer State
+  const [timerMinimized, setTimerMinimized] = useState(false);
+
   const [automationStatus, setAutomationStatus] = useState<AutomationStatus>("ready");
 
   const soundOnRef = useRef(true);
@@ -400,8 +410,11 @@ function StudyTimetable() {
     const completed = load<CompletedLog[]>("tt_completedLog", []);
     const s = load<Record<number, SessionRec>>("tt_sessions_" + dateKey, initSessions());
     ROWS.forEach((r) => {
-      if (!s[r.id])
-        s[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false };
+      if (!s[r.id]) {
+        s[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false, durationAllocated: r.dur };
+      } else if (s[r.id].durationAllocated === undefined) {
+        s[r.id].durationAllocated = r.dur; // Protects backward compatibility
+      }
     });
     setSessions(reconcileSessionsWithCompletedLogs(s, completed, dateKey));
     const c = load<Record<string, boolean>>("tt_checklist_" + dateKey, initChecklist());
@@ -440,6 +453,7 @@ function StudyTimetable() {
   useEffect(() => {
     if (mounted) save("tt_shift_" + todayKey(), timeShift);
   }, [timeShift, mounted]);
+
   /* -- zero-cost Google Apps Script automation sync -- */
   const sendAutomationEvent = useCallback(async (payload: AutomationPayload) => {
     setAutomationStatus("syncing");
@@ -734,9 +748,10 @@ function StudyTimetable() {
       setPending((p) => p.filter((x) => x !== id));
       setCompletedLog((prev) => {
         if (prev.some((l) => l.rowId === id && l.date === todayKey())) return prev;
+        const finalDur = sessions[id]?.durationAllocated ?? row.dur; // Log accurate allocated/extended time
         const next = [
           ...prev,
-          { date: todayKey(), rowId: id, cat: row.cat, durMin: row.dur, ts: Date.now() },
+          { date: todayKey(), rowId: id, cat: row.cat, durMin: finalDur, ts: Date.now() },
         ];
         save("tt_completedLog", next);
         return next;
@@ -753,25 +768,57 @@ function StudyTimetable() {
         sentAt: new Date().toISOString(),
         payload: automationSnapshot({ row, auto }),
       });
+      
+      // Auto-minimize timer if it was open
+      setTimerMinimized(false);
     },
-    [automationSnapshot, playCompleteChime, sendAutomationEvent],
+    [automationSnapshot, playCompleteChime, sendAutomationEvent, sessions],
   );
 
   const extendSession = useCallback(
-    (id: number, minutes: number) => {
+    (id: number, minutes: number, targetDeductId: number | 'none') => {
       if (minutes <= 0) return;
       const row = ROWS.find((r) => r.id === id);
-      const deductionTarget =
-        row?.cat === "technical" ? "English / GS flexible pool" : "future timetable shift";
       const currentSession = sessions[id];
       const reopenedCompletedSession = currentSession?.status === "completed";
 
       setSessions((prev) => {
-        const st = prev[id];
+        const next = { ...prev };
+        const st = next[id];
         const remaining = (reopenedCompletedSession ? 0 : st.remaining) + minutes * 60;
         const status: SessionStatus = reopenedCompletedSession ? "running" : st.status;
         const endTs = status === "running" ? Date.now() + remaining * 1000 : null;
-        return { ...prev, [id]: { ...st, status, remaining, warned: false, endTs } };
+        
+        // Safely retrieve allocated duration
+        const oldAllocated = st.durationAllocated ?? (ROWS.find(r => r.id === id)?.dur || 0);
+
+        next[id] = { 
+          ...st, 
+          status, 
+          remaining, 
+          warned: false, 
+          endTs, 
+          durationAllocated: oldAllocated + minutes 
+        };
+
+        // Handle deduction from target session
+        if (targetDeductId !== 'none' && next[targetDeductId]) {
+          const dst = next[targetDeductId];
+          const deductSecs = minutes * 60;
+          const targetRowDur = ROWS.find(r => r.id === targetDeductId)?.dur || 0;
+          
+          const newRem = Math.max(0, dst.remaining - deductSecs);
+          const newAlloc = Math.max(0, (dst.durationAllocated ?? targetRowDur) - minutes);
+          
+          next[targetDeductId] = {
+            ...dst,
+            remaining: newRem,
+            durationAllocated: newAlloc,
+            endTs: dst.endTs ? dst.endTs - (dst.remaining - newRem) * 1000 : dst.endTs
+          };
+        }
+
+        return next;
       });
 
       if (reopenedCompletedSession) {
@@ -793,14 +840,18 @@ function StudyTimetable() {
         }
       }
 
-      setTimeShift((t) => t + minutes);
+      // Only shift global timeline if we didn't balance the time by deducting
+      if (targetDeductId === 'none') {
+        setTimeShift((t) => t + minutes);
+      }
+
       void sendAutomationEvent({
         type: reopenedCompletedSession
           ? "completed_session_reopened_and_extended"
           : "session_extended",
         date: todayKey(),
         sentAt: new Date().toISOString(),
-        payload: automationSnapshot({ row, minutes, deductionTarget, reopenedCompletedSession }),
+        payload: automationSnapshot({ row, minutes, deductionTarget: targetDeductId, reopenedCompletedSession }),
       });
     },
     [automationSnapshot, completedLog, sendAutomationEvent, sessions],
@@ -1237,6 +1288,10 @@ function StudyTimetable() {
                       st.status === "completed" ||
                       st.status === "notstarted" ||
                       st.remaining > 10 * 60;
+                      
+                    // Extension logic: Must be completed or remaining <= 10 mins
+                    const canExtend = st.status === "completed" || st.remaining <= 600;
+
                     return (
                       <tr key={r.id} className={rowClass}>
                         <td className="tt-rowIcon">{r.icon}</td>
@@ -1273,13 +1328,12 @@ function StudyTimetable() {
                           <button
                             className="tt-b-ext"
                             title={
-                              st.status === "completed"
-                                ? "Reopen completed session and extend"
-                                : "Extend"
+                              canExtend
+                                ? st.status === "completed" ? "Reopen completed session and extend" : "Extend Time"
+                                : "Extension unlocks when completed or under 10 mins remaining"
                             }
-                            onClick={(ev) =>
-                              setExtendFor({ id: r.id, x: ev.clientX, y: ev.clientY })
-                            }
+                            disabled={!canExtend}
+                            onClick={() => setExtendModal({ id: r.id })}
                           >
                             ➕
                           </button>
@@ -1488,105 +1542,179 @@ function StudyTimetable() {
         </div>
       </div>
 
-      {/* TIMER MODAL — appears while a focus session is running or paused */}
-      {(runningRow ||
-        ROWS.find(
-          (r) =>
-            isFocusRow(r) &&
-            sessions[r.id]?.status === "paused" &&
-            sessions[r.id]?.remaining < r.dur * 60,
-        )) &&
-        (() => {
-          const active =
-            runningRow ||
-            ROWS.find(
-              (r) =>
-                isFocusRow(r) &&
-                sessions[r.id]?.status === "paused" &&
-                sessions[r.id]?.remaining < r.dur * 60,
-            )!;
-          const st = sessions[active.id];
-          const done = st.remaining <= 0;
-          const critical = st.status === "running" && st.remaining <= 10 && st.remaining > 0;
+      {/* EXTENSION MODAL (Overlay Form) */}
+      {extendModal && (
+        <div className="tt-modalOverlay">
+          <div className="tt-modalBox">
+            <h3>Extend Session: {ROWS.find(r => r.id === extendModal.id)?.act}</h3>
+            
+            <div style={{ marginBottom: "20px" }}>
+              <label>Minutes to Add:</label>
+              <div className="tt-extBtnGroup">
+                {[15, 30, 45, 60].map(m => (
+                  <button 
+                    key={m} 
+                    className={extendMins === m ? "active" : ""} 
+                    onClick={() => setExtendMins(m)}
+                  >
+                    +{m}
+                  </button>
+                ))}
+              </div>
+              <input 
+                type="number" 
+                value={extendMins} 
+                onChange={(e) => setExtendMins(Math.max(1, Number(e.target.value)))} 
+                min="1"
+              />
+            </div>
+
+            <div style={{ marginBottom: "20px" }}>
+              <label>Deduct time from (Optional Trade):</label>
+              <select 
+                value={deductId} 
+                onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}
+              >
+                <option value="none">-- Do not deduct --</option>
+                {ROWS.filter(r => 
+                   isFocusRow(r) && 
+                   r.id !== extendModal.id && 
+                   sessions[r.id]?.status !== "completed" && 
+                   sessions[r.id]?.remaining >= extendMins * 60
+                ).map(r => (
+                  <option key={r.id} value={r.id}>
+                    {r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="tt-modalActions">
+              <button 
+                onClick={() => setExtendModal(null)} 
+                style={{ background: "#f3f4f6", color: "#374151" }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={() => {
+                  extendSession(extendModal.id, extendMins, deductId);
+                  setExtendModal(null);
+                  setDeductId('none');
+                }} 
+                style={{ background: "#1f2870", color: "#ffffff" }}
+              >
+                Confirm Extension
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TIMER LOGIC */}
+      {(() => {
+        const active =
+          runningRow ||
+          ROWS.find(
+            (r) =>
+              isFocusRow(r) &&
+              sessions[r.id]?.status === "paused" &&
+              sessions[r.id]?.remaining < r.dur * 60,
+          );
+
+        if (!active) return null;
+
+        const st = sessions[active.id];
+        const done = st.remaining <= 0;
+        const critical = st.status === "running" && st.remaining <= 10 && st.remaining > 0;
+        const canExtend = st.status === "completed" || st.remaining <= 600;
+
+        if (timerMinimized) {
+          // MINI-WIDGET
           return (
-            <div className={`tt-timerModal ${done ? "done" : ""} ${critical ? "warn" : ""}`}>
-              <div className="tt-tmHead">
+            <div className="tt-timerMini" onClick={() => setTimerMinimized(false)} title="Click to open timer">
+              <span className="tt-tmIcon">{active.icon}</span>
+              <span className="tt-tmBig">{fmtTime(st.remaining)}</span>
+            </div>
+          );
+        }
+
+        // FULL MODAL
+        return (
+          <div className={`tt-timerModal ${done ? "done" : ""} ${critical ? "warn" : ""}`}>
+            <div className="tt-tmHead">
+              <div>
                 <span className="tt-tmIcon">{active.icon}</span>
                 <span className="tt-tmTitle">{active.act}</span>
                 <span className={`tt-statusPill tt-st-${st.status}`}>
                   {st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase()}
                 </span>
               </div>
-              <div className="tt-tmBig">{fmtTime(st.remaining)}</div>
-              <div className="tt-tmHint">
-                {done
-                  ? "✅ Time complete — you may Complete or Extend."
-                  : "Complete unlocks in the final 10 minutes of each task."}
-              </div>
-              <div className="tt-tmBtns">
-                {st.status === "running" ? (
-                  <button className="tt-b-pause" onClick={() => pauseSession(active.id)}>
-                    ⏸ Pause
-                  </button>
-                ) : (
-                  <button className="tt-b-start" onClick={() => startSession(active.id)}>
-                    ▶ Resume
-                  </button>
-                )}
-                <button
-                  className="tt-b-ext"
-                  onClick={(ev) =>
-                    setExtendFor({ id: active.id, x: ev.clientX - 100, y: ev.clientY + 10 })
-                  }
-                >
-                  ➕ Extend
-                </button>
-                <button
-                  className="tt-b-done"
-                  disabled={st.remaining > 10 * 60}
-                  onClick={() => completeSession(active.id)}
-                >
-                  ✓ Complete
-                </button>
-              </div>
-            </div>
-          );
-        })()}
-
-      {/* EXTEND POPUP */}
-      {extendFor && (
-        <>
-          <div
-            style={{ position: "fixed", inset: 0, zIndex: 55 }}
-            onClick={() => setExtendFor(null)}
-          />
-          <div className="tt-extPopup" style={{ left: extendFor.x, top: extendFor.y }}>
-            {[15, 30, 45, 60].map((m) => (
-              <button
-                key={m}
-                onClick={() => {
-                  extendSession(extendFor.id, m);
-                  setExtendFor(null);
-                }}
-              >
-                +{m} min
+              <button className="tt-tmCloseBtn" onClick={() => setTimerMinimized(true)}>
+                🔽 Minimize
               </button>
-            ))}
-            <button
-              onClick={() => {
-                const v = window.prompt("Custom minutes:");
-                if (v) {
-                  const n = parseInt(v, 10);
-                  if (!Number.isNaN(n)) extendSession(extendFor.id, n);
-                }
-                setExtendFor(null);
-              }}
-            >
-              Custom…
-            </button>
+            </div>
+            
+            <div className="tt-tmBig">{fmtTime(st.remaining)}</div>
+            <div className="tt-tmHint">
+              {done
+                ? "✅ Time complete — you may Complete or Extend."
+                : "Complete and Extension unlock in the final 10 minutes."}
+            </div>
+            
+            <div className="tt-tmBtns">
+              {st.status === "running" ? (
+                <button className="tt-b-pause" onClick={() => pauseSession(active.id)}>
+                  ⏸ Pause
+                </button>
+              ) : (
+                <button className="tt-b-start" onClick={() => startSession(active.id)}>
+                  ▶ Resume
+                </button>
+              )}
+              <button
+                className="tt-b-ext"
+                disabled={!canExtend}
+                onClick={() => setExtendModal({ id: active.id })}
+              >
+                ➕ Extend
+              </button>
+              <button
+                className="tt-b-done"
+                disabled={st.remaining > 10 * 60}
+                onClick={() => completeSession(active.id)}
+              >
+                ✓ Complete
+              </button>
+            </div>
           </div>
-        </>
-      )}
+        );
+      })()}
+      
+      {/* Dynamic CSS injected directly to secure modal and mini-widget layout */}
+      <style>{`
+        .tt-modalOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 15px; }
+        .tt-modalBox { background: white; width: 100%; max-width: 420px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .tt-modalBox h3 { margin-top: 0; color: #1f2870; font-size: 20px; font-weight: 800; margin-bottom: 16px; }
+        .tt-modalBox label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #4b5563; }
+        .tt-modalBox select, .tt-modalBox input { width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; outline: none; }
+        .tt-modalBox select:focus, .tt-modalBox input:focus { border-color: #1f2870; }
+        .tt-extBtnGroup { display: flex; gap: 8px; margin-bottom: 12px; }
+        .tt-extBtnGroup button { flex: 1; padding: 8px 0; font-size: 14px; font-weight: 600; background: #f3f4f6; color: #4b5563; border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .tt-extBtnGroup button.active { background: #e0e7ff; color: #1f2870; border-color: #1f2870; }
+        .tt-modalActions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
+        .tt-modalActions button { padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; border: none; cursor: pointer; }
+
+        .tt-timerMini { position: fixed; bottom: 24px; right: 24px; background: #1f2870; color: white; padding: 12px 24px; border-radius: 50px; display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.2); z-index: 9998; cursor: pointer; border: 2px solid #f0b429; transition: transform 0.2s; }
+        .tt-timerMini:active { transform: scale(0.95); }
+        .tt-timerMini .tt-tmIcon { font-size: 20px; }
+        .tt-timerMini .tt-tmBig { font-size: 22px; font-weight: 800; font-family: monospace; letter-spacing: 1px; }
+
+        .tt-tmCloseBtn { background: #e5e7eb; color: #4b5563; border: none; padding: 6px 12px; border-radius: 12px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .tt-tmCloseBtn:hover { background: #d1d5db; color: #111; }
+        .tt-tmHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; }
+        .tt-tmHead > div { display: flex; align-items: center; gap: 10px; }
+      `}</style>
     </div>
   );
 }
