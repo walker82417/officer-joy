@@ -189,7 +189,10 @@ function StudyTimetable() {
   const [extendMins, setExtendMins] = useState<number>(15);
   const [deductId, setDeductId] = useState<number | 'none'>('none');
   const [timerMinimized, setTimerMinimized] = useState(false);
+  
+  // Custom status text to show EXACTLY what is failing if needed
   const [automationStatus, setAutomationStatus] = useState<AutomationStatus>("ready");
+  const [statusMessage, setStatusMessage] = useState("Connecting & pulling cloud state...");
 
   const soundOnRef = useRef(true);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -219,37 +222,56 @@ function StudyTimetable() {
     soundOnRef.current = load("tt_soundOn", true);
     setMounted(true);
 
-    /* -- Hydrate Phase 2: Cloud Sync (True Universality) -- */
+    /* -- Hydrate Phase 2: True Cloud Sync -- */
     const fetchRemoteState = async () => {
       try {
         setAutomationStatus("syncing");
-        const url = `${AUTOMATION_WEB_APP_URL}?secret=${AUTOMATION_SHARED_SECRET}`;
-        const res = await fetch(url, { redirect: "follow" });
-        const json = await res.json();
+        setStatusMessage("Connecting & pulling cloud state...");
+        
+        const url = `${AUTOMATION_WEB_APP_URL}?secret=${AUTOMATION_SHARED_SECRET}&t=${Date.now()}`;
+        const res = await fetch(url);
+        
+        // Read as text first to intercept Google Login HTML Pages (Incognito mode bug)
+        const text = await res.text(); 
+        
+        let json;
+        try {
+          json = JSON.parse(text);
+        } catch(e) {
+          console.error("Google blocked the sync. Make sure deployment access is set to 'Anyone', not just 'Anyone with Google account'.");
+          setAutomationStatus("error");
+          setStatusMessage("Google blocked sync. Change Access to 'Anyone' in Apps Script.");
+          return;
+        }
 
-        if (json.ok && json.hasData && json.snapshot && json.snapshot.date === dateKey) {
+        if (json.ok && json.hasData && json.snapshot) {
           const snap = json.snapshot;
-          const localLastUpdate = load(`tt_last_auto_snapshot_${dateKey}`, 0);
-          const remoteLastUpdate = snap.lastUpdated || 1; 
+          
+          // Only pull the snapshot if it belongs to TODAY. If it's yesterday, we want a newborn baby!
+          if (snap.date === dateKey) {
+            const localLastUpdate = load(`tt_last_auto_snapshot_${dateKey}`, 0);
+            const remoteLastUpdate = snap.lastUpdated || 1; 
 
-          if (localLastUpdate === 0 || remoteLastUpdate > localLastUpdate) {
-            console.log("Cloud sync applied successfully!");
-            setSessions(reconcileSessionsWithCompletedLogs(snap.sessions, snap.completedLog || [], dateKey));
-            setChecklist(snap.checklist || initChecklist());
-            setPending(snap.pending || []);
-            setHeatmapLog(snap.heatmapLog || {});
-            setCompletedLog(snap.completedLog || []);
-            setTimeShift(snap.timeShift || 0);
-            if (snap.examDates) setExamDates(snap.examDates);
-            save(`tt_last_auto_snapshot_${dateKey}`, remoteLastUpdate);
+            // Force sync if local is 0 (Opera Incognito) OR remote is newer
+            if (localLastUpdate === 0 || remoteLastUpdate > localLastUpdate) {
+              console.log("Cloud sync applied successfully!");
+              setSessions(reconcileSessionsWithCompletedLogs(snap.sessions, snap.completedLog || [], dateKey));
+              setChecklist(snap.checklist || initChecklist());
+              setPending(snap.pending || []);
+              setHeatmapLog(snap.heatmapLog || {});
+              setCompletedLog(snap.completedLog || []);
+              setTimeShift(snap.timeShift || 0);
+              if (snap.examDates) setExamDates(snap.examDates);
+              save(`tt_last_auto_snapshot_${dateKey}`, remoteLastUpdate);
+            }
           }
-        } else {
-          console.log("No remote snapshot found for today.");
         }
         setAutomationStatus("synced");
+        setStatusMessage("Connected & synced");
       } catch (err) {
-        console.error("Cloud fetch failed, using local offline data.", err);
+        console.error("Cloud fetch failed.", err);
         setAutomationStatus("error");
+        setStatusMessage("Offline / Sync Failed");
       } finally {
         setInitialSyncDone(true);
       }
@@ -269,13 +291,15 @@ function StudyTimetable() {
 
   const sendAutomationEvent = useCallback(async (payload: AutomationPayload) => {
     setAutomationStatus("syncing");
+    setStatusMessage("Pushing update...");
     try {
       await postAutomationPayload(payload);
       setAutomationStatus("synced");
+      setStatusMessage("Connected & synced");
     } catch (error) {
-      console.error("Apps Script automation sync failed; queued locally for retry", error);
       queueAutomationPayload(payload);
       setAutomationStatus("error");
+      setStatusMessage("Saved offline. Will retry.");
     }
   }, []);
 
@@ -683,7 +707,7 @@ function StudyTimetable() {
     };
 
     const syncIfDue = (force = false) => {
-      if (!initialSyncDone) return; // THE LOCK: Prevent overwrite before download finishes
+      if (!initialSyncDone) return; // THE LOCK
       void flushQueuedAutomation();
       const key = `tt_last_auto_snapshot_${todayKey()}`;
       const lastSyncedAt = load(key, 0);
@@ -784,7 +808,7 @@ function StudyTimetable() {
             <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
             <div className={`tt-syncIndicator ${automationStatus}`} title="Google Apps Script auto-sync status">
               <span className="tt-syncDot" aria-hidden="true" />
-              <span>{automationStatus === "synced" ? "Connected & synced" : automationStatus === "syncing" || automationStatus === "ready" ? "Connecting & pulling cloud state..." : "Not connected / offline"}</span>
+              <span>{statusMessage}</span>
               <button onClick={() => sendAutomationSnapshot("manual_snapshot")}>Sync now</button>
             </div>
           </div>
@@ -1000,15 +1024,15 @@ function StudyTimetable() {
         const canExtend = st.status === "completed" || st.remaining <= 600;
 
         if (timerMinimized) {
-          // TOP-CENTER MINI WIDGET - THE FIX
+          // TOP-CENTER MINI WIDGET - THE INVISIBLE TIMER FIX
           return (
             <div className="tt-timerMini" onClick={() => setTimerMinimized(false)} title="Click to open full timer">
               <span className="tt-tmIcon">{active.icon}</span>
               <span className="tt-tmSubj">{active.act}</span>
-              {/* Added hardcoded styles to guarantee visibility */}
-              <span className="tt-tmBig" style={{ color: "#4ade80", textShadow: "0px 2px 4px rgba(0,0,0,0.6)" }}>
+              {/* Force solid block background so text cannot disappear */}
+              <div className="tt-tmBigSolid">
                 {fmtTime(st.remaining)}
-              </span>
+              </div>
             </div>
           );
         }
@@ -1063,8 +1087,8 @@ function StudyTimetable() {
         .tt-timerMini { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #1f2870; color: white; padding: 10px 30px; border-radius: 50px; display: flex; align-items: center; gap: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 9998; cursor: pointer; border: 2px solid #f0b429; transition: transform 0.2s; }
         .tt-timerMini:active { transform: translateX(-50%) scale(0.95); }
         .tt-timerMini .tt-tmIcon { font-size: 20px; }
-        .tt-timerMini .tt-tmSubj { font-size: 16px; font-weight: 600; color: #fcd34d; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-right: 1px solid rgba(255,255,255,0.3); padding-right: 15px; }
-        .tt-timerMini .tt-tmBig { font-size: 24px; font-weight: 900; font-family: monospace; letter-spacing: 1.5px; }
+        .tt-timerMini .tt-tmSubj { font-size: 16px; font-weight: 600; color: #fcd34d; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tt-tmBigSolid { background: #ea580c; color: #ffffff; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; font-family: monospace; letter-spacing: 1px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); margin-left: 10px; }
 
         .tt-tmCloseBtn { background: #e5e7eb; color: #4b5563; border: none; padding: 6px 12px; border-radius: 12px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         .tt-tmCloseBtn:hover { background: #d1d5db; color: #111; }
