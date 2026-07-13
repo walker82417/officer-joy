@@ -38,6 +38,7 @@ const ROWS: Row[] = [
   { id: 15, time: "9:15 – 10:00 PM", startMin: 1275, dur: 45, act: "REVISION & MOCK ANALYSIS", focus: "Mock Test / Error Analysis / Short Notes", cat: "technical", icon: "🔍" },
   { id: 16, time: "10:00 PM", startMin: 1320, dur: 0, act: "SLEEP", focus: "Good Sleep, Better Tomorrow", cat: "life", icon: "🌙" },
 ];
+
 const isFocusRow = (r: Row) => r.cat === "technical" || r.cat === "aptitude" || r.cat === "gs";
 
 const ROTATION: [string, string][] = [
@@ -49,23 +50,26 @@ const ROTATION: [string, string][] = [
   ["Sat", "Electronics (Analog + Digital)"],
   ["Sun", "Full Length Mock Test + Revision"],
 ];
-const CHECKLIST_ITEMS = ["Wake Up", "Exercise", "Breakfast", "Theory Completed", "Numericals Completed", "PYQs", "Aptitude", "Revision", "Sleep Before 10 PM"];
+
+const CHECKLIST_ITEMS = [
+  "Wake Up", "Exercise", "Breakfast", "Theory Completed", 
+  "Numericals Completed", "PYQs", "Aptitude", "Revision", "Sleep Before 10 PM"
+];
 
 const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
-  0: "Wake Up", 1: "Exercise", 3: "Breakfast", 4: "Theory Completed", 6: "Numericals Completed", 8: "PYQs", 10: "Aptitude", 15: "Revision", 16: "Sleep Before 10 PM",
+  0: "Wake Up", 1: "Exercise", 3: "Breakfast", 4: "Theory Completed", 
+  6: "Numericals Completed", 8: "PYQs", 10: "Aptitude", 15: "Revision", 16: "Sleep Before 10 PM",
 };
 
 const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 
-// IMPORTANT: Ensure this URL exactly matches your latest Apps Script deployment
-const AUTOMATION_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFbz6Gf4hcGZfDv0aXKS9wZVm9HobFagMVK6ieL2Y0Iy_NB0vTmztA06_0nmNb0hGl/exec";
+const AUTOMATION_WEB_APP_URL = "https://script.google.com/macros/s/AKfycby3PeJjHY-DaFSjknr5K4gyy6JjWLdMJR_ZWYwKPhjbbkFOdiQgExY6rp_M7z3Vf6yq/exec";
 const AUTOMATION_SHARED_SECRET = "rohan-secure-2026";
-
-// ALGORITHM UPDATE: Reduced to 5 minutes to prevent Google Sheets Overload
+// 5 Minutes (Not 5 Seconds)
 const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; 
-
 const AUTOMATION_QUEUE_KEY = "tt_automation_offline_queue";
 const MAX_AUTOMATION_QUEUE_ITEMS = 500;
+
 const QUOTES = [
   "The harder you work for something, the greater you'll feel when you achieve it.",
   "Don't stop when you're tired. Stop when you're done.",
@@ -75,6 +79,7 @@ const QUOTES = [
   "One day or day one. You decide.",
   "Consistency beats intensity.",
 ];
+
 type ExamKey = "ssc" | "gate" | "ese";
 const EXAMS_DEFAULT: Record<ExamKey, { label: string; date: string }> = {
   ssc: { label: "SSC JE 2027", date: "2027-06-01" },
@@ -98,10 +103,12 @@ const todayKey = () => {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
+
 function load<T>(key: string, def: T): T {
   if (typeof window === "undefined") return def;
   try { const v = window.localStorage.getItem(key); return v ? (JSON.parse(v) as T) : def; } catch { return def; }
 }
+
 function save<T>(key: string, val: T) {
   if (typeof window === "undefined") return;
   try { window.localStorage.setItem(key, JSON.stringify(val)); } catch {}
@@ -179,7 +186,7 @@ function initChecklist(): Record<string, boolean> {
    ============================================================= */
 function StudyTimetable() {
   const [mounted, setMounted] = useState(false);
-  const [initialSyncDone, setInitialSyncDone] = useState(false);
+  const [initialSyncDone, setInitialSyncDone] = useState(false); // Cloud Lock
   const [nowTick, setNowTick] = useState(0);
   const [examDates, setExamDates] = useState(EXAMS_DEFAULT);
   const [sessions, setSessions] = useState<Record<number, SessionRec>>(initSessions);
@@ -295,7 +302,7 @@ function StudyTimetable() {
       await postAutomationPayload(payload);
       setAutomationStatus("synced");
       setStatusMessage("Connected & synced");
-      // Update local timestamp to prevent redundant background syncs
+      // Update local timestamp so background sync knows we are fresh
       save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
     } catch (error) {
       queueAutomationPayload(payload);
@@ -445,7 +452,7 @@ function StudyTimetable() {
   }, [totalFocus, doneToday.length, nowTick]);
 
   /* =========================================================
-     ACTIONS (Now with Event-Driven Sync Built-In!)
+     ACTIONS
      ========================================================= */
   const startSession = useCallback(
     (id: number) => {
@@ -708,7 +715,7 @@ function StudyTimetable() {
     };
 
     const syncIfDue = (force = false) => {
-      if (!initialSyncDone) return; 
+      if (!initialSyncDone) return; // THE LOCK
       void flushQueuedAutomation();
       const key = `tt_last_auto_snapshot_${todayKey()}`;
       const lastSyncedAt = load(key, 0);
@@ -1025,7 +1032,7 @@ function StudyTimetable() {
         const canExtend = st.status === "completed" || st.remaining <= 600;
 
         if (timerMinimized) {
-          // TOP-CENTER MINI WIDGET - THE INVISIBLE TIMER FIX
+          // TOP-CENTER MINI WIDGET
           return (
             <div className="tt-timerMini" onClick={() => setTimerMinimized(false)} title="Click to open full timer">
               <span className="tt-tmIcon">{active.icon}</span>
