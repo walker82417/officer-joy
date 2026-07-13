@@ -42,6 +42,9 @@ function doPost(e) {
       return sendFrontendDailyReport_(event);
     }
     appendEvent_(event);
+    if (event.type === "daily_report_snapshot") {
+      sendDailyReport();
+    }
     return ContentService.createTextOutput(JSON.stringify({ ok: true })).setMimeType(
       ContentService.MimeType.JSON,
     );
