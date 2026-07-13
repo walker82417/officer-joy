@@ -227,9 +227,11 @@ const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
 };
 const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
 const AUTOMATION_WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycbyFbz6Gf4hcGZfDv0aXKS9wZVm9HobFagMVK6ieL2Y0Iy_NB0vTmztA06_0nmNb0hGl/exec";
-const AUTOMATION_SHARED_SECRET = "rohan-secure-2026"
+  "https://script.google.com/macros/s/AKfycby3PeJjHY-DaFSjknr5K4gyy6JjWLdMJR_ZWYwKPhjbbkFOdiQgExY6rp_M7z3Vf6yq/exec";
+const AUTOMATION_SHARED_SECRET = "rohan-secure-2026";
 const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 1000;
+const AUTOMATION_QUEUE_KEY = "tt_automation_offline_queue";
+const MAX_AUTOMATION_QUEUE_ITEMS = 500;
 const QUOTES = [
   "The harder you work for something, the greater you'll feel when you achieve it.",
   "Don't stop when you're tired. Stop when you're done.",
@@ -265,7 +267,13 @@ type AutomationPayload = {
 /* =============================================================
    STORAGE
    ============================================================= */
-const todayKey = () => new Date().toISOString().slice(0, 10);
+const todayKey = () => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 function load<T>(key: string, def: T): T {
   if (typeof window === "undefined") return def;
   try {
@@ -282,6 +290,43 @@ function save<T>(key: string, val: T) {
   } catch {
     /* quota */
   }
+}
+
+function reconcileSessionsWithCompletedLogs(
+  sessions: Record<number, SessionRec>,
+  completedLogs: CompletedLog[],
+  dateKey: string,
+) {
+  const out = { ...sessions };
+  completedLogs
+    .filter((log) => log.date === dateKey)
+    .forEach((log) => {
+      const row = ROWS.find((r) => r.id === log.rowId);
+      if (!row || !isFocusRow(row)) return;
+      out[log.rowId] = {
+        ...(out[log.rowId] || { remaining: row.dur * 60, endTs: null, warned: false }),
+        status: "completed",
+        remaining: 0,
+        endTs: null,
+        warned: false,
+      };
+    });
+  return out;
+}
+
+function queueAutomationPayload(payload: AutomationPayload) {
+  const queued = load<AutomationPayload[]>(AUTOMATION_QUEUE_KEY, []);
+  save(AUTOMATION_QUEUE_KEY, [...queued, payload].slice(-MAX_AUTOMATION_QUEUE_ITEMS));
+}
+
+async function postAutomationPayload(payload: AutomationPayload) {
+  await fetch(AUTOMATION_WEB_APP_URL, {
+    method: "POST",
+    mode: "no-cors",
+    keepalive: true,
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ ...payload, secret: AUTOMATION_SHARED_SECRET }),
+  });
 }
 
 /* =============================================================
@@ -350,22 +395,24 @@ function StudyTimetable() {
 
   /* -- hydrate from localStorage after mount -- */
   useEffect(() => {
+    const dateKey = todayKey();
     setExamDates(load("tt_examDates", EXAMS_DEFAULT));
-    const s = load<Record<number, SessionRec>>("tt_sessions_" + todayKey(), initSessions());
+    const completed = load<CompletedLog[]>("tt_completedLog", []);
+    const s = load<Record<number, SessionRec>>("tt_sessions_" + dateKey, initSessions());
     ROWS.forEach((r) => {
       if (!s[r.id])
         s[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false };
     });
-    setSessions(s);
-    const c = load<Record<string, boolean>>("tt_checklist_" + todayKey(), initChecklist());
+    setSessions(reconcileSessionsWithCompletedLogs(s, completed, dateKey));
+    const c = load<Record<string, boolean>>("tt_checklist_" + dateKey, initChecklist());
     CHECKLIST_ITEMS.forEach((it) => {
       if (c[it] === undefined) c[it] = false;
     });
     setChecklist(c);
-    setPending(load("tt_pending_" + todayKey(), []));
+    setPending(load("tt_pending_" + dateKey, []));
     setHeatmapLog(load("tt_heatmap", {}));
-    setCompletedLog(load("tt_completedLog", []));
-    setTimeShift(load("tt_shift_" + todayKey(), 0));
+    setCompletedLog(completed);
+    setTimeShift(load("tt_shift_" + dateKey, 0));
     soundOnRef.current = load("tt_soundOn", true);
     setAutomationStatus("ready");
     setMounted(true);
@@ -395,20 +442,13 @@ function StudyTimetable() {
   }, [timeShift, mounted]);
   /* -- zero-cost Google Apps Script automation sync -- */
   const sendAutomationEvent = useCallback(async (payload: AutomationPayload) => {
-    const url = AUTOMATION_WEB_APP_URL;
-    const secret = AUTOMATION_SHARED_SECRET;
     setAutomationStatus("syncing");
     try {
-      await fetch(url, {
-        method: "POST",
-        mode: "no-cors",
-        keepalive: true,
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ ...payload, secret }),
-      });
+      await postAutomationPayload(payload);
       setAutomationStatus("synced");
     } catch (error) {
-      console.error("Apps Script automation sync failed", error);
+      console.error("Apps Script automation sync failed; queued locally for retry", error);
+      queueAutomationPayload(payload);
       setAutomationStatus("error");
     }
   }, []);
@@ -684,15 +724,22 @@ function StudyTimetable() {
       if (!row) return;
       setSessions((prev) => {
         if (prev[id].status === "completed") return prev;
-        return { ...prev, [id]: { ...prev[id], status: "completed", remaining: 0, endTs: null } };
+        const next = {
+          ...prev,
+          [id]: { ...prev[id], status: "completed", remaining: 0, endTs: null },
+        };
+        save("tt_sessions_" + todayKey(), next);
+        return next;
       });
       setPending((p) => p.filter((x) => x !== id));
       setCompletedLog((prev) => {
         if (prev.some((l) => l.rowId === id && l.date === todayKey())) return prev;
-        return [
+        const next = [
           ...prev,
           { date: todayKey(), rowId: id, cat: row.cat, durMin: row.dur, ts: Date.now() },
         ];
+        save("tt_completedLog", next);
+        return next;
       });
       setHeatmapLog((prev) => ({ ...prev, [todayKey()]: (prev[todayKey()] || 0) + 1 }));
       const checklistItem = ROW_CHECKLIST_MAP[id];
@@ -952,7 +999,24 @@ function StudyTimetable() {
   useEffect(() => {
     if (!mounted) return;
 
+    const flushQueuedAutomation = async () => {
+      const queued = load<AutomationPayload[]>(AUTOMATION_QUEUE_KEY, []);
+      if (!queued.length) return;
+      setAutomationStatus("syncing");
+      try {
+        for (const queuedPayload of queued) {
+          await postAutomationPayload(queuedPayload);
+        }
+        save(AUTOMATION_QUEUE_KEY, []);
+        setAutomationStatus("synced");
+      } catch (error) {
+        console.error("Queued Apps Script automation retry failed", error);
+        setAutomationStatus("error");
+      }
+    };
+
     const syncIfDue = (force = false) => {
+      void flushQueuedAutomation();
       const key = `tt_last_auto_snapshot_${todayKey()}`;
       const lastSyncedAt = load(key, 0);
       if (!force && Date.now() - lastSyncedAt < AUTO_SNAPSHOT_INTERVAL_MS) return;
