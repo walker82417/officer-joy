@@ -581,8 +581,8 @@ function StudyTimetable({ user }: { user: User }) {
               <div className="tt-clock">{clockLine}</div>
             </div>
             <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
-            <div className="tt-syncIndicator" style={{ background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' }}>
-              <span className="tt-syncDot" aria-hidden="true" style={{ background: '#22c55e' }} />
+            <div className="tt-syncIndicator" style={{ background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0', padding: '6px 12px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold' }}>
+              <span className="tt-syncDot" aria-hidden="true" style={{ background: '#22c55e', width: '8px', height: '8px', borderRadius: '50%', display: 'inline-block' }} />
               <span>Firebase Database Synced ⚡ ({user.email})</span>
             </div>
           </div>
