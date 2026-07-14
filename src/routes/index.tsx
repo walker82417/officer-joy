@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { doc, onSnapshot, setDoc } from "firebase/firestore";
-import { onAuthStateChanged, signInWithPopup, User } from "firebase/auth";
+import { onAuthStateChanged, signInWithPopup, User, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth, googleProvider } from "../firebaseConfig";
 
 export const Route = createFileRoute("/")({
@@ -140,6 +140,8 @@ function initChecklist(): Record<string, boolean> {
 function AppWrapper() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [pass, setPass] = useState("");
 
   useEffect(() => {
     return onAuthStateChanged(auth, (currentUser) => {
@@ -161,10 +163,42 @@ function AppWrapper() {
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#1f2870', color: 'white', fontFamily: 'sans-serif' }}>
         <h1 style={{ fontSize: '48px', margin: '0 0 10px 0' }}>Officer Rohan's Timetable</h1>
         <p style={{ fontSize: '18px', opacity: 0.8, marginBottom: '30px' }}>Firebase Secured Architecture</p>
+        
+        {/* EMAIL & PASSWORD LOGIN BOX */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '320px', marginBottom: '20px' }}>
+          <input 
+            type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} 
+            style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }} 
+          />
+          <input 
+            type="password" placeholder="Password (min 6 chars)" value={pass} onChange={e => setPass(e.target.value)} 
+            style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }} 
+          />
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button 
+              onClick={() => signInWithEmailAndPassword(auth, email, pass).catch(e => alert("LOGIN ERROR: " + e.message))} 
+              style={{ flex: 1, padding: '12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+              Login
+            </button>
+            <button 
+              onClick={() => createUserWithEmailAndPassword(auth, email, pass).catch(e => alert("SIGNUP ERROR: " + e.message))} 
+              style={{ flex: 1, padding: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
+              Sign Up
+            </button>
+          </div>
+        </div>
+
+        <div style={{ margin: '10px 0', opacity: 0.5, fontSize: '14px' }}>— OR —</div>
+
+        {/* GOOGLE LOGIN FALLBACK */}
         <button 
-          onClick={() => signInWithPopup(auth, googleProvider)} 
-          style={{ padding: '16px 32px', background: '#f0b429', color: '#111', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
-          Verify Identity (Google Login)
+          onClick={() => {
+            signInWithPopup(auth, googleProvider).catch((error) => {
+              alert("GOOGLE LOGIN ERROR: " + error.message);
+            });
+          }} 
+          style={{ padding: '14px 32px', background: '#f0b429', color: '#111', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s', marginTop: '10px' }}>
+          Verify with Google
         </button>
       </div>
     );
@@ -716,7 +750,7 @@ function StudyTimetable({ user }: { user: User }) {
                   </div>
                   <div className="tt-card tt-emailCard">
                     <h3>FIREBASE ENGINE SECURED 🛡️</h3>
-                    <p>Google Auth is enabled. Data is locked to your account and streams instantly in real-time across all your devices.</p>
+                    <p>Google Auth + Email Password is enabled. Data is locked to your account and streams instantly in real-time across all your devices.</p>
                   </div>
                 </div>
 
