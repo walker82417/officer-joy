@@ -9,7 +9,7 @@ export const Route = createFileRoute("/")({
 });
 
 /* =============================================================
-   DATA
+   DATA (REVERTED TO ORIGINAL SCHEDULE)
    ============================================================= */
 type Row = {
   id: number;
@@ -39,9 +39,7 @@ const ROWS: Row[] = [
   { id: 13, time: "7:30 – 8:15 PM", startMin: 1170, dur: 45, act: "DINNER & FAMILY TIME", focus: "Take a Break, Stay Connected", cat: "life", icon: "👨‍👩‍👧" },
   { id: 14, time: "8:15 – 9:15 PM", startMin: 1215, dur: 60, act: "ENGLISH", focus: "Grammar, Vocabulary, RC", cat: "gs", icon: "🔤" },
   { id: 15, time: "9:15 – 10:00 PM", startMin: 1275, dur: 45, act: "REVISION & MOCK ANALYSIS", focus: "Mock Test / Error Analysis / Short Notes", cat: "technical", icon: "🔍" },
-  { id: 16, time: "10:00 – 11:00 PM", startMin: 1320, dur: 60, act: "INTELLICHAT", focus: "AI Model Training & Prompts", cat: "technical", icon: "🤖" },
-  { id: 17, time: "11:00 – 11:30 PM", startMin: 1380, dur: 30, act: "LINGUA & LOGIC", focus: "DuoLingo & Matiks", cat: "gs", icon: "🌍" },
-  { id: 18, time: "11:30 PM", startMin: 1410, dur: 0, act: "SLEEP", focus: "Good Sleep, Better Tomorrow", cat: "life", icon: "🌙" },
+  { id: 16, time: "10:00 PM", startMin: 1320, dur: 0, act: "SLEEP", focus: "Good Sleep, Better Tomorrow", cat: "life", icon: "🌙" },
 ];
 
 const isFocusRow = (r: Row) => r.cat === "technical" || r.cat === "aptitude" || r.cat === "gs";
@@ -56,10 +54,10 @@ const ROTATION: [string, string][] = [
   ["Sun", "Full Length Mock Test + Revision"],
 ];
 
-const CHECKLIST_ITEMS = ["Wake Up", "Exercise", "Breakfast", "Theory Completed", "Numericals Completed", "PYQs", "Aptitude", "Revision", "IntelliChat", "Lingua & Logic", "Sleep Before 11:30 PM"];
+const CHECKLIST_ITEMS = ["Wake Up", "Exercise", "Breakfast", "Theory Completed", "Numericals Completed", "PYQs", "Aptitude", "Revision", "Sleep Before 10 PM"];
 
 const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
-  0: "Wake Up", 1: "Exercise", 3: "Breakfast", 4: "Theory Completed", 6: "Numericals Completed", 8: "PYQs", 10: "Aptitude", 15: "Revision", 16: "IntelliChat", 17: "Lingua & Logic", 18: "Sleep Before 11:30 PM",
+  0: "Wake Up", 1: "Exercise", 3: "Breakfast", 4: "Theory Completed", 6: "Numericals Completed", 8: "PYQs", 10: "Aptitude", 15: "Revision", 16: "Sleep Before 10 PM",
 };
 
 const QUOTES = [
@@ -207,7 +205,7 @@ function StudyTimetable({ user }: { user: User }) {
     const unsubToday = onSnapshot(todayRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        // THE FIX: Merge the old database data with the new schedule format
+        // SAFE MERGE to prevent blank screens
         if (data.sessions) setSessions({ ...initSessions(), ...data.sessions });
         if (data.checklist) setChecklist({ ...initChecklist(), ...data.checklist });
         if (data.pending) setPending(data.pending);
