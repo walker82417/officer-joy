@@ -207,8 +207,9 @@ function StudyTimetable({ user }: { user: User }) {
     const unsubToday = onSnapshot(todayRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
-        if (data.sessions) setSessions(data.sessions);
-        if (data.checklist) setChecklist(data.checklist);
+        // THE FIX: Merge the old database data with the new schedule format
+        if (data.sessions) setSessions({ ...initSessions(), ...data.sessions });
+        if (data.checklist) setChecklist({ ...initChecklist(), ...data.checklist });
         if (data.pending) setPending(data.pending);
         if (data.completedLog) setCompletedLog(data.completedLog);
         if (data.extensionLog) setExtensionLog(data.extensionLog);
