@@ -1,8 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { onAuthStateChanged, signInWithPopup, User } from "firebase/auth";
+import { db, auth, googleProvider } from "../firebaseConfig";
 
 export const Route = createFileRoute("/")({
-  component: StudyTimetable,
+  component: AppWrapper,
 });
 
 /* =============================================================
@@ -51,24 +54,11 @@ const ROTATION: [string, string][] = [
   ["Sun", "Full Length Mock Test + Revision"],
 ];
 
-const CHECKLIST_ITEMS = [
-  "Wake Up", "Exercise", "Breakfast", "Theory Completed", 
-  "Numericals Completed", "PYQs", "Aptitude", "Revision", "Sleep Before 10 PM"
-];
+const CHECKLIST_ITEMS = ["Wake Up", "Exercise", "Breakfast", "Theory Completed", "Numericals Completed", "PYQs", "Aptitude", "Revision", "Sleep Before 10 PM"];
 
 const ROW_CHECKLIST_MAP: Partial<Record<number, string>> = {
-  0: "Wake Up", 1: "Exercise", 3: "Breakfast", 4: "Theory Completed", 
-  6: "Numericals Completed", 8: "PYQs", 10: "Aptitude", 15: "Revision", 16: "Sleep Before 10 PM",
+  0: "Wake Up", 1: "Exercise", 3: "Breakfast", 4: "Theory Completed", 6: "Numericals Completed", 8: "PYQs", 10: "Aptitude", 15: "Revision", 16: "Sleep Before 10 PM",
 };
-
-const EMAIL_REPORT_RECIPIENTS = ["rohandoiphode1@gmail.com", "rohand11072004@gmail.com"];
-
-const AUTOMATION_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFbz6Gf4hcGZfDv0aXKS9wZVm9HobFagMVK6ieL2Y0Iy_NB0vTmztA06_0nmNb0hGl/exec";
-const AUTOMATION_SHARED_SECRET = "rohan-secure-2026";
-// 5 Minutes (Not 5 Seconds)
-const AUTO_SNAPSHOT_INTERVAL_MS = 5 * 60 * 1000; 
-const AUTOMATION_QUEUE_KEY = "tt_automation_offline_queue";
-const MAX_AUTOMATION_QUEUE_ITEMS = 500;
 
 const QUOTES = [
   "The harder you work for something, the greater you'll feel when you achieve it.",
@@ -90,11 +80,9 @@ const EXAMS_DEFAULT: Record<ExamKey, { label: string; date: string }> = {
 type SessionStatus = "notstarted" | "running" | "paused" | "completed";
 type SessionRec = { status: SessionStatus; remaining: number; endTs: number | null; warned: boolean; durationAllocated?: number; };
 type CompletedLog = { date: string; rowId: number; cat: Row["cat"]; durMin: number; ts: number };
-type AutomationStatus = "not-configured" | "ready" | "syncing" | "synced" | "error";
-type AutomationPayload = { type: string; date: string; sentAt: string; payload: Record<string, unknown>; };
 
 /* =============================================================
-   STORAGE
+   HELPERS
    ============================================================= */
 const todayKey = () => {
   const date = new Date();
@@ -104,45 +92,6 @@ const todayKey = () => {
   return `${year}-${month}-${day}`;
 };
 
-function load<T>(key: string, def: T): T {
-  if (typeof window === "undefined") return def;
-  try { const v = window.localStorage.getItem(key); return v ? (JSON.parse(v) as T) : def; } catch { return def; }
-}
-
-function save<T>(key: string, val: T) {
-  if (typeof window === "undefined") return;
-  try { window.localStorage.setItem(key, JSON.stringify(val)); } catch {}
-}
-
-function reconcileSessionsWithCompletedLogs(sessions: Record<number, SessionRec>, completedLogs: CompletedLog[], dateKey: string) {
-  const out = { ...sessions };
-  completedLogs.filter((log) => log.date === dateKey).forEach((log) => {
-    const row = ROWS.find((r) => r.id === log.rowId);
-    if (!row || !isFocusRow(row)) return;
-    out[log.rowId] = {
-      ...(out[log.rowId] || { remaining: row.dur * 60, endTs: null, warned: false }),
-      status: "completed", remaining: 0, endTs: null, warned: false, durationAllocated: log.durMin,
-    };
-  });
-  return out;
-}
-
-function queueAutomationPayload(payload: AutomationPayload) {
-  const queued = load<AutomationPayload[]>(AUTOMATION_QUEUE_KEY, []);
-  save(AUTOMATION_QUEUE_KEY, [...queued, payload].slice(-MAX_AUTOMATION_QUEUE_ITEMS));
-}
-
-async function postAutomationPayload(payload: AutomationPayload) {
-  await fetch(AUTOMATION_WEB_APP_URL, {
-    method: "POST", mode: "no-cors", keepalive: true,
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify({ ...payload, secret: AUTOMATION_SHARED_SECRET }),
-  });
-}
-
-/* =============================================================
-   HELPERS
-   ============================================================= */
 function fmtTime(sec: number) {
   sec = Math.max(0, sec);
   const h = Math.floor(sec / 3600);
@@ -150,6 +99,7 @@ function fmtTime(sec: number) {
   const s = sec % 60;
   return [h, m, s].map((n) => String(n).padStart(2, "0")).join(":");
 }
+
 function minsToClock(mins: number) {
   mins = ((mins % 1440) + 1440) % 1440;
   const h = Math.floor(mins / 60);
@@ -159,6 +109,7 @@ function minsToClock(mins: number) {
   if (h12 === 0) h12 = 12;
   return `${h12}:${String(m).padStart(2, "0")} ${ap}`;
 }
+
 function countdownParts(dateStr: string) {
   const target = new Date(dateStr + "T00:00:00");
   const now = new Date();
@@ -170,11 +121,13 @@ function countdownParts(dateStr: string) {
   const s = Math.floor((diff % 60000) / 1000);
   return { d, h, m, s };
 }
+
 function initSessions(): Record<number, SessionRec> {
   const out: Record<number, SessionRec> = {};
   ROWS.forEach((r) => { out[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false, durationAllocated: r.dur }; });
   return out;
 }
+
 function initChecklist(): Record<string, boolean> {
   const out: Record<string, boolean> = {};
   CHECKLIST_ITEMS.forEach((it) => (out[it] = false));
@@ -182,12 +135,52 @@ function initChecklist(): Record<string, boolean> {
 }
 
 /* =============================================================
-   COMPONENT
+   AUTHENTICATION WRAPPER
    ============================================================= */
-function StudyTimetable() {
+function AppWrapper() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    return onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f4f6f8', color: '#1f2870', fontFamily: 'sans-serif' }}>
+        <h2>Connecting to Command Center...</h2>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#1f2870', color: 'white', fontFamily: 'sans-serif' }}>
+        <h1 style={{ fontSize: '48px', margin: '0 0 10px 0' }}>Officer Rohan's Timetable</h1>
+        <p style={{ fontSize: '18px', opacity: 0.8, marginBottom: '30px' }}>Firebase Secured Architecture</p>
+        <button 
+          onClick={() => signInWithPopup(auth, googleProvider)} 
+          style={{ padding: '16px 32px', background: '#f0b429', color: '#111', border: 'none', borderRadius: '8px', fontSize: '18px', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s', boxShadow: '0 4px 15px rgba(0,0,0,0.3)' }}>
+          Verify Identity (Google Login)
+        </button>
+      </div>
+    );
+  }
+
+  return <StudyTimetable user={user} />;
+}
+
+/* =============================================================
+   MAIN COMPONENT (FIREBASE POWERED)
+   ============================================================= */
+function StudyTimetable({ user }: { user: User }) {
   const [mounted, setMounted] = useState(false);
-  const [initialSyncDone, setInitialSyncDone] = useState(false); // Cloud Lock
   const [nowTick, setNowTick] = useState(0);
+  
+  // State
   const [examDates, setExamDates] = useState(EXAMS_DEFAULT);
   const [sessions, setSessions] = useState<Record<number, SessionRec>>(initSessions);
   const [checklist, setChecklist] = useState<Record<string, boolean>>(initChecklist);
@@ -195,142 +188,57 @@ function StudyTimetable() {
   const [heatmapLog, setHeatmapLog] = useState<Record<string, number>>({});
   const [completedLog, setCompletedLog] = useState<CompletedLog[]>([]);
   const [timeShift, setTimeShift] = useState(0);
-  const [editingExam, setEditingExam] = useState<ExamKey | null>(null);
   
+  // UI State
+  const [editingExam, setEditingExam] = useState<ExamKey | null>(null);
   const [extendModal, setExtendModal] = useState<{ id: number } | null>(null);
   const [extendMins, setExtendMins] = useState<number>(15);
   const [deductId, setDeductId] = useState<number | 'none'>('none');
   const [timerMinimized, setTimerMinimized] = useState(false);
   
-  const [automationStatus, setAutomationStatus] = useState<AutomationStatus>("ready");
-  const [statusMessage, setStatusMessage] = useState("Connecting & pulling cloud state...");
-
-  const soundOnRef = useRef(true);
-  const audioCtxRef = useRef<AudioContext | null>(null);
   const ringRef = useRef<HTMLCanvasElement | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
-  /* -- Hydrate Phase 1: Local Storage (Instant Load) -- */
+  // Firestore References
+  const userRef = doc(db, "users", user.uid);
+  const todayRef = doc(db, "users", user.uid, "daily", todayKey());
+
+  /* -- FIREBASE REAL-TIME SYNC -- */
   useEffect(() => {
-    const dateKey = todayKey();
-    setExamDates(load("tt_examDates", EXAMS_DEFAULT));
-    const completed = load<CompletedLog[]>("tt_completedLog", []);
-    const s = load<Record<number, SessionRec>>("tt_sessions_" + dateKey, initSessions());
-    ROWS.forEach((r) => {
-      if (!s[r.id]) {
-        s[r.id] = { status: "notstarted", remaining: r.dur * 60, endTs: null, warned: false, durationAllocated: r.dur };
-      } else if (s[r.id].durationAllocated === undefined) {
-        s[r.id].durationAllocated = r.dur;
+    // 1. Listen to Global User Data (Exams, Heatmap)
+    const unsubUser = onSnapshot(userRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.examDates) setExamDates(data.examDates);
+        if (data.heatmapLog) setHeatmapLog(data.heatmapLog);
       }
     });
-    setSessions(reconcileSessionsWithCompletedLogs(s, completed, dateKey));
-    const c = load<Record<string, boolean>>("tt_checklist_" + dateKey, initChecklist());
-    CHECKLIST_ITEMS.forEach((it) => { if (c[it] === undefined) c[it] = false; });
-    setChecklist(c);
-    setPending(load("tt_pending_" + dateKey, []));
-    setHeatmapLog(load("tt_heatmap", {}));
-    setCompletedLog(completed);
-    setTimeShift(load("tt_shift_" + dateKey, 0));
-    soundOnRef.current = load("tt_soundOn", true);
-    setMounted(true);
 
-    /* -- Hydrate Phase 2: True Cloud Sync -- */
-    const fetchRemoteState = async () => {
-      try {
-        setAutomationStatus("syncing");
-        setStatusMessage("Pulling latest cloud state...");
-        
-        const url = `${AUTOMATION_WEB_APP_URL}?secret=${AUTOMATION_SHARED_SECRET}&t=${Date.now()}`;
-        const res = await fetch(url);
-        const text = await res.text(); 
-        
-        let json;
-        try {
-          json = JSON.parse(text);
-        } catch(e) {
-          console.error("Fetch returned HTML. Please ensure correct App Script URL and 'Anyone' access.");
-          setAutomationStatus("error");
-          setStatusMessage("Google blocked sync. Fix Apps Script URL/Access.");
-          return;
-        }
-
-        if (json.ok && json.hasData && json.snapshot) {
-          const snap = json.snapshot;
-          if (snap.date === dateKey) {
-            const localLastUpdate = load(`tt_last_auto_snapshot_${dateKey}`, 0);
-            const remoteLastUpdate = snap.lastUpdated || 1; 
-
-            if (localLastUpdate === 0 || remoteLastUpdate > localLastUpdate) {
-              console.log("Cloud sync successfully applied.");
-              setSessions(reconcileSessionsWithCompletedLogs(snap.sessions, snap.completedLog || [], dateKey));
-              setChecklist(snap.checklist || initChecklist());
-              setPending(snap.pending || []);
-              setHeatmapLog(snap.heatmapLog || {});
-              setCompletedLog(snap.completedLog || []);
-              setTimeShift(snap.timeShift || 0);
-              if (snap.examDates) setExamDates(snap.examDates);
-              save(`tt_last_auto_snapshot_${dateKey}`, remoteLastUpdate);
-            }
-          }
-        }
-        setAutomationStatus("synced");
-        setStatusMessage("Connected & synced");
-      } catch (err) {
-        console.error("Cloud fetch failed.", err);
-        setAutomationStatus("error");
-        setStatusMessage("Offline / Sync Failed");
-      } finally {
-        setInitialSyncDone(true);
+    // 2. Listen to Today's Data (Sessions, Checklist, Timers)
+    const unsubToday = onSnapshot(todayRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.sessions) setSessions(data.sessions);
+        if (data.checklist) setChecklist(data.checklist);
+        if (data.pending) setPending(data.pending);
+        if (data.completedLog) setCompletedLog(data.completedLog);
+        if (data.timeShift !== undefined) setTimeShift(data.timeShift);
+      } else {
+        // Initialize daily document if it doesn't exist
+        setDoc(todayRef, { sessions: initSessions(), checklist: initChecklist(), pending: [], completedLog: [], timeShift: 0 }, { merge: true });
       }
-    };
-    
-    fetchRemoteState();
-  }, []);
+      setMounted(true);
+    });
 
-  /* -- persist -- */
-  useEffect(() => { if (mounted) save("tt_examDates", examDates); }, [examDates, mounted]);
-  useEffect(() => { if (mounted) save("tt_sessions_" + todayKey(), sessions); }, [sessions, mounted]);
-  useEffect(() => { if (mounted) save("tt_checklist_" + todayKey(), checklist); }, [checklist, mounted]);
-  useEffect(() => { if (mounted) save("tt_pending_" + todayKey(), pending); }, [pending, mounted]);
-  useEffect(() => { if (mounted) save("tt_heatmap", heatmapLog); }, [heatmapLog, mounted]);
-  useEffect(() => { if (mounted) save("tt_completedLog", completedLog); }, [completedLog, mounted]);
-  useEffect(() => { if (mounted) save("tt_shift_" + todayKey(), timeShift); }, [timeShift, mounted]);
+    return () => { unsubUser(); unsubToday(); };
+  }, [user.uid]);
 
-  const sendAutomationEvent = useCallback(async (payload: AutomationPayload) => {
-    setAutomationStatus("syncing");
-    setStatusMessage("Pushing explicit event...");
-    try {
-      await postAutomationPayload(payload);
-      setAutomationStatus("synced");
-      setStatusMessage("Connected & synced");
-      // Update local timestamp so background sync knows we are fresh
-      save(`tt_last_auto_snapshot_${todayKey()}`, Date.now());
-    } catch (error) {
-      queueAutomationPayload(payload);
-      setAutomationStatus("error");
-      setStatusMessage("Saved offline. Will retry.");
-    }
-  }, []);
-
-  const automationSnapshot = useCallback(
-    (extra: Record<string, unknown> = {}) => ({
-      owner: "Officer Rohan",
-      date: todayKey(),
-      lastUpdated: Date.now(),
-      examDates,
-      checklist,
-      pending,
-      heatmapLog,
-      completedLog,
-      sessions,
-      timeShift,
-      ...extra,
-    }),
-    [checklist, completedLog, examDates, heatmapLog, pending, sessions, timeShift],
-  );
+  // Push updates to Firebase
+  const updateToday = (updates: Partial<any>) => setDoc(todayRef, updates, { merge: true });
+  const updateUserStats = (updates: Partial<any>) => setDoc(userRef, updates, { merge: true });
 
   /* -- sound -- */
-  const playTone = useCallback((freq: number, duration: number, vol: number, type: OscillatorType = "sine") => {
-    if (!soundOnRef.current) return;
+  const playTone = useCallback((freq: number, duration: number, vol: number) => {
     try {
       if (!audioCtxRef.current) {
         const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -339,7 +247,7 @@ function StudyTimetable() {
       const ctx = audioCtxRef.current;
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = type; osc.frequency.value = freq;
+      osc.type = "sine"; osc.frequency.value = freq;
       gain.gain.setValueAtTime(0, ctx.currentTime);
       gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 0.03);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
@@ -347,11 +255,11 @@ function StudyTimetable() {
       osc.start(); osc.stop(ctx.currentTime + duration + 0.02);
     } catch {}
   }, []);
+
   const playStartChime = useCallback(() => { playTone(523, 0.18, 0.12); setTimeout(() => playTone(659, 0.22, 0.12), 120); }, [playTone]);
   const playCompleteChime = useCallback(() => { playTone(659, 0.16, 0.12); setTimeout(() => playTone(880, 0.28, 0.12), 140); }, [playTone]);
-  const playCountdownBlip = useCallback(() => { playTone(740, 0.1, 0.09); }, [playTone]);
 
-  /* -- 1-second tick -- */
+  /* -- 1-second tick for local timers -- */
   useEffect(() => {
     const id = window.setInterval(() => setNowTick((x) => x + 1), 1000);
     return () => window.clearInterval(id);
@@ -366,55 +274,40 @@ function StudyTimetable() {
     ROWS.forEach((r) => {
       if (!isFocusRow(r)) return;
       const st = nextSessions[r.id];
-      if (st.status === "running" && st.endTs) {
+      if (st && st.status === "running" && st.endTs) {
         const remaining = Math.round((st.endTs - now) / 1000);
-        if (remaining <= 5 && remaining > 0 && !st.warned) playCountdownBlip();
         if (remaining <= 0) toComplete.push(r.id);
         else if (remaining !== st.remaining) { nextSessions[r.id] = { ...st, remaining }; changed = true; }
       }
     });
     if (changed) setSessions(nextSessions);
-    toComplete.forEach((id) => completeSession(id, true));
+    toComplete.forEach((id) => completeSession(id));
   }, [nowTick, mounted]);
-
-  useEffect(() => {
-    if (!mounted) return;
-    setSessions((prev) => {
-      const runningIds = ROWS.filter((row) => isFocusRow(row) && prev[row.id]?.status === "running").map((row) => row.id);
-      if (runningIds.length <= 1) return prev;
-      const now = Date.now();
-      const next = { ...prev };
-      runningIds.slice(1).forEach((runningId) => {
-        const st = next[runningId];
-        next[runningId] = {
-          ...st, status: "paused",
-          remaining: st.endTs ? Math.max(Math.round((st.endTs - now) / 1000), 0) : st.remaining,
-          endTs: null,
-        };
-      });
-      return next;
-    });
-  }, [mounted]);
 
   useEffect(() => {
     if (!mounted) return;
     const check = () => {
       const nowMin = new Date().getHours() * 60 + new Date().getMinutes();
-      setPending((prev) => {
-        const next = [...prev];
-        ROWS.forEach((r) => {
-          if (!isFocusRow(r)) return;
-          const st = sessions[r.id];
-          const endMin = r.startMin + r.dur + timeShift;
-          if (st && st.status === "notstarted" && nowMin > endMin && !next.includes(r.id)) next.push(r.id);
-        });
-        return next.length === prev.length ? prev : next;
+      const nextPending = [...pending];
+      let pendingChanged = false;
+      ROWS.forEach((r) => {
+        if (!isFocusRow(r)) return;
+        const st = sessions[r.id];
+        const endMin = r.startMin + r.dur + timeShift;
+        if (st && st.status === "notstarted" && nowMin > endMin && !nextPending.includes(r.id)) {
+          nextPending.push(r.id);
+          pendingChanged = true;
+        }
       });
+      if (pendingChanged) {
+        setPending(nextPending);
+        updateToday({ pending: nextPending });
+      }
     };
     check();
     const id = window.setInterval(check, 60000);
     return () => window.clearInterval(id);
-  }, [sessions, timeShift, mounted]);
+  }, [sessions, timeShift, mounted, pending]);
 
   const totalFocus = useMemo(() => ROWS.filter(isFocusRow).length, []);
   const doneToday = useMemo(() => completedLog.filter((l) => l.date === todayKey()), [completedLog]);
@@ -452,148 +345,117 @@ function StudyTimetable() {
   }, [totalFocus, doneToday.length, nowTick]);
 
   /* =========================================================
-     ACTIONS
+     ACTIONS (Pushing to Firebase)
      ========================================================= */
-  const startSession = useCallback(
-    (id: number) => {
-      const currentSession = sessions[id];
-      const anotherSessionRunning = Object.entries(sessions).some(([sessionId, session]) => Number(sessionId) !== id && session.status === "running");
-      if (anotherSessionRunning || !currentSession || (currentSession.status !== "notstarted" && currentSession.status !== "paused")) return;
+  const startSession = (id: number) => {
+    const st = sessions[id];
+    if (!st || st.status === "completed") return;
+    
+    const nextSessions = { ...sessions };
+    // Pause any running session
+    Object.keys(nextSessions).forEach(key => {
+       if (nextSessions[Number(key)].status === 'running') {
+         nextSessions[Number(key)].status = 'paused';
+         nextSessions[Number(key)].endTs = null;
+       }
+    });
 
-      setSessions((prev) => {
-        const anotherRunningInLatestState = Object.entries(prev).some(([sessionId, session]) => Number(sessionId) !== id && session.status === "running");
-        const st = prev[id];
-        if (anotherRunningInLatestState || !st || (st.status !== "notstarted" && st.status !== "paused")) return prev;
-        return { ...prev, [id]: { ...st, status: "running", endTs: Date.now() + st.remaining * 1000, warned: false } };
-      });
-      playStartChime();
-      setPending((p) => p.filter((x) => x !== id));
-      const row = ROWS.find((r) => r.id === id);
-      void sendAutomationEvent({ type: "session_started", date: todayKey(), sentAt: new Date().toISOString(), payload: automationSnapshot({ row }) });
-    },
-    [automationSnapshot, playStartChime, sendAutomationEvent, sessions],
-  );
+    nextSessions[id] = { ...st, status: "running", endTs: Date.now() + st.remaining * 1000, warned: false };
+    
+    playStartChime();
+    setSessions(nextSessions);
+    updateToday({ sessions: nextSessions, pending: pending.filter((x) => x !== id) });
+  };
 
-  const pauseSession = useCallback(
-    (id: number) => {
-      setSessions((prev) => {
-        const st = prev[id];
-        if (st.status === "running" && st.endTs) {
-          const remaining = Math.round((st.endTs - Date.now()) / 1000);
-          const row = ROWS.find((r) => r.id === id);
-          void sendAutomationEvent({ type: "session_paused", date: todayKey(), sentAt: new Date().toISOString(), payload: automationSnapshot({ row, remaining }) });
-          return { ...prev, [id]: { ...st, status: "paused", remaining, endTs: null } };
-        }
-        return prev;
-      });
-    },
-    [automationSnapshot, sendAutomationEvent],
-  );
+  const pauseSession = (id: number) => {
+    const st = sessions[id];
+    if (!st || st.status !== "running" || !st.endTs) return;
+    
+    const remaining = Math.round((st.endTs - Date.now()) / 1000);
+    const nextSessions = { ...sessions, [id]: { ...st, status: "paused", remaining, endTs: null } };
+    
+    setSessions(nextSessions);
+    updateToday({ sessions: nextSessions });
+  };
 
-  const completeSession = useCallback(
-    (id: number, auto = false) => {
-      const row = ROWS.find((r) => r.id === id);
-      if (!row) return;
-      setSessions((prev) => {
-        if (prev[id].status === "completed") return prev;
-        const next = { ...prev, [id]: { ...prev[id], status: "completed", remaining: 0, endTs: null } };
-        save("tt_sessions_" + todayKey(), next);
-        return next;
-      });
-      setPending((p) => p.filter((x) => x !== id));
-      setCompletedLog((prev) => {
-        if (prev.some((l) => l.rowId === id && l.date === todayKey())) return prev;
-        const finalDur = sessions[id]?.durationAllocated ?? row.dur; 
-        const next = [...prev, { date: todayKey(), rowId: id, cat: row.cat, durMin: finalDur, ts: Date.now() }];
-        save("tt_completedLog", next);
-        return next;
-      });
-      setHeatmapLog((prev) => ({ ...prev, [todayKey()]: (prev[todayKey()] || 0) + 1 }));
-      const checklistItem = ROW_CHECKLIST_MAP[id];
-      if (checklistItem) setChecklist((prev) => ({ ...prev, [checklistItem]: true }));
-      playCompleteChime();
-      void sendAutomationEvent({ type: auto ? "session_auto_completed" : "session_completed", date: todayKey(), sentAt: new Date().toISOString(), payload: automationSnapshot({ row, auto }) });
-      setTimerMinimized(false);
-    },
-    [automationSnapshot, playCompleteChime, sendAutomationEvent, sessions],
-  );
+  const completeSession = (id: number) => {
+    const row = ROWS.find((r) => r.id === id);
+    if (!row) return;
 
-  const extendSession = useCallback(
-    (id: number, minutes: number, targetDeductId: number | 'none') => {
-      if (minutes <= 0) return;
-      const row = ROWS.find((r) => r.id === id);
-      const currentSession = sessions[id];
-      const reopenedCompletedSession = currentSession?.status === "completed";
+    const nextSessions = { ...sessions, [id]: { ...sessions[id], status: "completed", remaining: 0, endTs: null } as SessionRec };
+    const finalDur = sessions[id]?.durationAllocated ?? row.dur; 
+    
+    // Check if already completed to prevent duplicates
+    let newLog = completedLog;
+    if (!completedLog.some((l) => l.rowId === id && l.date === todayKey())) {
+      newLog = [...completedLog, { date: todayKey(), rowId: id, cat: row.cat, durMin: finalDur, ts: Date.now() }];
+    }
+    
+    const checklistItem = ROW_CHECKLIST_MAP[id];
+    const newChecklist = checklistItem ? { ...checklist, [checklistItem]: true } : checklist;
 
-      setSessions((prev) => {
-        const next = { ...prev };
-        const st = next[id];
-        const remaining = (reopenedCompletedSession ? 0 : st.remaining) + minutes * 60;
-        const status: SessionStatus = reopenedCompletedSession ? "running" : st.status;
-        const endTs = status === "running" ? Date.now() + remaining * 1000 : null;
-        const oldAllocated = st.durationAllocated ?? (ROWS.find(r => r.id === id)?.dur || 0);
+    playCompleteChime();
+    setSessions(nextSessions);
+    updateToday({ sessions: nextSessions, completedLog: newLog, checklist: newChecklist, pending: pending.filter((x) => x !== id) });
+    updateUserStats({ [`heatmapLog.${todayKey()}`]: (heatmapLog[todayKey()] || 0) + 1 });
+    setTimerMinimized(false);
+  };
 
-        next[id] = { ...st, status, remaining, warned: false, endTs, durationAllocated: oldAllocated + minutes };
+  const extendSession = (id: number, minutes: number, targetDeductId: number | 'none') => {
+    if (minutes <= 0) return;
+    const st = sessions[id];
+    const reopened = st.status === "completed";
+    
+    const nextSessions = { ...sessions };
+    const remaining = (reopened ? 0 : st.remaining) + minutes * 60;
+    const status = reopened ? "running" : st.status;
+    const endTs = status === "running" ? Date.now() + remaining * 1000 : null;
+    const oldAllocated = st.durationAllocated ?? (ROWS.find(r => r.id === id)?.dur || 0);
 
-        if (targetDeductId !== 'none' && next[targetDeductId]) {
-          const dst = next[targetDeductId];
-          const deductSecs = minutes * 60;
-          const targetRowDur = ROWS.find(r => r.id === targetDeductId)?.dur || 0;
-          const newRem = Math.max(0, dst.remaining - deductSecs);
-          const newAlloc = Math.max(0, (dst.durationAllocated ?? targetRowDur) - minutes);
-          
-          next[targetDeductId] = {
-            ...dst, remaining: newRem, durationAllocated: newAlloc,
-            endTs: dst.endTs ? dst.endTs - (dst.remaining - newRem) * 1000 : dst.endTs
-          };
-        }
-        return next;
-      });
+    nextSessions[id] = { ...st, status, remaining, endTs, durationAllocated: oldAllocated + minutes, warned: false };
+    let newShift = timeShift;
 
-      if (reopenedCompletedSession) {
-        const hadCompletedLog = completedLog.some((log) => log.date === todayKey() && log.rowId === id);
-        if (hadCompletedLog) {
-          setCompletedLog((prev) => prev.filter((log) => !(log.date === todayKey() && log.rowId === id)));
-          setHeatmapLog((heatmap) => ({ ...heatmap, [todayKey()]: Math.max((heatmap[todayKey()] || 1) - 1, 0) }));
-        }
-        const checklistItem = ROW_CHECKLIST_MAP[id];
-        if (checklistItem) setChecklist((prev) => ({ ...prev, [checklistItem]: false }));
-      }
+    if (targetDeductId !== 'none' && nextSessions[targetDeductId]) {
+      const dst = nextSessions[targetDeductId];
+      nextSessions[targetDeductId] = { ...dst, remaining: Math.max(0, dst.remaining - minutes * 60) };
+    } else {
+      newShift += minutes;
+    }
 
-      if (targetDeductId === 'none') setTimeShift((t) => t + minutes);
+    let newLog = completedLog;
+    let newChecklist = checklist;
+    
+    if (reopened) {
+       newLog = completedLog.filter(log => !(log.date === todayKey() && log.rowId === id));
+       updateUserStats({ [`heatmapLog.${todayKey()}`]: Math.max((heatmapLog[todayKey()] || 1) - 1, 0) });
+       
+       const checklistItem = ROW_CHECKLIST_MAP[id];
+       if (checklistItem) {
+         newChecklist = { ...checklist, [checklistItem]: false };
+       }
+    }
 
-      void sendAutomationEvent({
-        type: reopenedCompletedSession ? "completed_session_reopened_and_extended" : "session_extended",
-        date: todayKey(), sentAt: new Date().toISOString(),
-        payload: automationSnapshot({ row, minutes, deductionTarget: targetDeductId, reopenedCompletedSession }),
-      });
-    },
-    [automationSnapshot, completedLog, sendAutomationEvent, sessions],
-  );
+    setSessions(nextSessions);
+    updateToday({ sessions: nextSessions, timeShift: newShift, completedLog: newLog, checklist: newChecklist });
+  };
 
-  const saveExamDate = useCallback(
-    (key: ExamKey, val: string) => {
-      if (!val) return;
-      setExamDates((prev) => ({ ...prev, [key]: { ...prev[key], date: val } }));
-      setEditingExam(null);
-      void sendAutomationEvent({ type: "exam_date_updated", date: todayKey(), sentAt: new Date().toISOString(), payload: automationSnapshot({ examKey: key, examDate: val }) });
-    },
-    [automationSnapshot, sendAutomationEvent],
-  );
+  const saveExamDate = (key: ExamKey, val: string) => {
+    if (!val) return;
+    const newExams = { ...examDates, [key]: { ...examDates[key], date: val } };
+    setExamDates(newExams);
+    setEditingExam(null);
+    updateUserStats({ examDates: newExams });
+  };
 
-  const toggleCheck = useCallback(
-    (item: string, val: boolean) => {
-      setChecklist((prev) => ({ ...prev, [item]: val }));
-      void sendAutomationEvent({ type: "checklist_updated", date: todayKey(), sentAt: new Date().toISOString(), payload: automationSnapshot({ item, checked: val }) });
-    },
-    [automationSnapshot, sendAutomationEvent],
-  );
+  const toggleCheck = (item: string, val: boolean) => {
+    const newChecklist = { ...checklist, [item]: val };
+    setChecklist(newChecklist);
+    updateToday({ checklist: newChecklist });
+  };
 
   /* =========================================================
      DERIVED VIEW STATE
      ========================================================= */
-  void nowTick;
-
   const now = new Date();
   const hh = now.getHours();
   const greet = hh < 12 ? "Good Morning" : hh < 17 ? "Good Afternoon" : "Good Evening";
@@ -658,101 +520,6 @@ function StudyTimetable() {
     };
   }, [completedLog, heatmapLog, streak]);
 
-  const buildMissionReport = useCallback(() => {
-    const todayLogs = completedLog.filter((l) => l.date === todayKey());
-    const completed = todayLogs.length;
-    const totalMinutes = todayLogs.reduce((sum, log) => sum + log.durMin, 0);
-    const hours = Math.floor(totalMinutes / 60);
-    const minutes = totalMinutes % 60;
-    const bySubject: Record<string, number> = {};
-
-    todayLogs.forEach((log) => {
-      const row = ROWS.find((r) => r.id === log.rowId);
-      if (row) bySubject[row.act] = (bySubject[row.act] || 0) + log.durMin;
-    });
-
-    const mostProductive = Object.keys(bySubject).sort((a, b) => bySubject[b] - bySubject[a])[0] || "Mission not started yet";
-    const remainingRows = ROWS.filter((r) => isFocusRow(r) && !todayLogs.some((log) => log.rowId === r.id));
-    const tomorrowFocus = ROTATION[(todayIdx + 1) % ROTATION.length][1];
-
-    return {
-      subject: `Officer Rohan | Mission Report • ${new Date().toLocaleDateString("en-IN")}`,
-      body: [
-        "Dear Officer Rohan,", "", "Today's mission has concluded.", "", "Mission Summary",
-        `✅ Study Hours: ${hours}h ${minutes}m`, `✅ Sessions Completed: ${completed} / ${totalFocus}`,
-        `🔥 Current Streak: ${streak} Days`, `⚡ Most Productive Subject: ${mostProductive}`, "", "Mission Debrief",
-        completed > 0 ? `You completed ${completed} focused mission${completed === 1 ? "" : "s"} today. Keep this chain alive with one disciplined session tomorrow.` : "No focus mission is completed yet. Open with one small session and build momentum before the day ends.",
-        remainingRows.length > 0 ? `Pending balance: ${remainingRows.slice(0, 3).map((row) => row.act).join(", ")}.` : "All focus missions are complete. Outstanding discipline today.",
-        "", "Tomorrow's Mission", `• ${tomorrowFocus}`, "• Revision of weak areas", "• Current Affairs", "",
-        '"The future Officer Rohan is built by the discipline of today\'s Rohan."', "", "Until tomorrow, Officer Rohan.", "Mission Control",
-      ].join("\n"),
-    };
-  }, [completedLog, streak, todayIdx, totalFocus]);
-
-  const sendAutomationSnapshot = useCallback(
-    (type: "auto_snapshot" | "manual_snapshot" | "daily_report_snapshot") => {
-      const updateTime = Date.now();
-      save(`tt_last_auto_snapshot_${todayKey()}`, updateTime);
-      void sendAutomationEvent({
-        type, date: todayKey(), sentAt: new Date().toISOString(),
-        payload: automationSnapshot({ report: buildMissionReport(), emailReport: type === "daily_report_snapshot", lastUpdated: updateTime }),
-      });
-    },
-    [automationSnapshot, buildMissionReport, sendAutomationEvent],
-  );
-
-  useEffect(() => {
-    if (!mounted) return;
-    const flushQueuedAutomation = async () => {
-      const queued = load<AutomationPayload[]>(AUTOMATION_QUEUE_KEY, []);
-      if (!queued.length) return;
-      setAutomationStatus("syncing");
-      try {
-        for (const queuedPayload of queued) await postAutomationPayload(queuedPayload);
-        save(AUTOMATION_QUEUE_KEY, []);
-        setAutomationStatus("synced");
-      } catch (error) { setAutomationStatus("error"); }
-    };
-
-    const syncIfDue = (force = false) => {
-      if (!initialSyncDone) return; // THE LOCK
-      void flushQueuedAutomation();
-      const key = `tt_last_auto_snapshot_${todayKey()}`;
-      const lastSyncedAt = load(key, 0);
-      if (!force && Date.now() - lastSyncedAt < AUTO_SNAPSHOT_INTERVAL_MS) return;
-      sendAutomationSnapshot("auto_snapshot");
-    };
-
-    syncIfDue();
-    const intervalId = window.setInterval(() => syncIfDue(), AUTO_SNAPSHOT_INTERVAL_MS);
-    const handleVisibilityChange = () => { if (document.visibilityState === "hidden") syncIfDue(true); };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => { window.clearInterval(intervalId); document.removeEventListener("visibilitychange", handleVisibilityChange); };
-  }, [mounted, initialSyncDone, sendAutomationSnapshot]); 
-
-  const openMissionReportEmail = useCallback(() => {
-    const report = buildMissionReport();
-    const mailto = `mailto:${EMAIL_REPORT_RECIPIENTS.join(",")}?subject=${encodeURIComponent(report.subject)}&body=${encodeURIComponent(report.body)}`;
-    window.location.href = mailto;
-  }, [buildMissionReport]);
-
-  useEffect(() => {
-    if (!mounted) return;
-    const reportKey = `tt_report_sent_${todayKey()}`;
-    const checkReportTime = () => {
-      const current = new Date();
-      const reportDue = current.getHours() > 22 || (current.getHours() === 22 && current.getMinutes() >= 15);
-      if (reportDue && !load(reportKey, false)) {
-        save(reportKey, true);
-        if (AUTOMATION_WEB_APP_URL) sendAutomationSnapshot("daily_report_snapshot");
-        else openMissionReportEmail();
-      }
-    };
-    checkReportTime();
-    const id = window.setInterval(checkReportTime, 30000);
-    return () => window.clearInterval(id);
-  }, [mounted, openMissionReportEmail, sendAutomationSnapshot]);
-
   /* =========================================================
      RENDER
      ========================================================= */
@@ -798,7 +565,7 @@ function StudyTimetable() {
               <div className="tt-titleBlock">
                 <h1>UNIVERSAL STUDY TIMETABLE</h1>
                 <div className="tt-examTags">
-                  <b className="blue">UPSC ESE (ELECTRICAL)</b> | <b className="red">MPSC</b> | <b className="green">SSC JE</b> | <b className="purple">RRB JE</b> | <b className="orange">SSC CGL</b> | <b className="blue">RAILWAYS</b> &amp; OTHER GOVT. EXAMS
+                  <b className="blue">UPSC ESE (ELECTRICAL)</b> | <b className="red">MPSC</b> | <b className="green">SSC JE</b> | <b className="purple">RRB JE</b> | <b className="orange">SSC CGL</b> | <b className="blue">RAILWAYS</b>
                 </div>
                 <div className="tt-motto">★ ★ &nbsp; ONE DAY OR DAY ONE. YOU DECIDE. &nbsp; ★ ★</div>
               </div>
@@ -814,10 +581,9 @@ function StudyTimetable() {
               <div className="tt-clock">{clockLine}</div>
             </div>
             <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
-            <div className={`tt-syncIndicator ${automationStatus}`} title="Google Apps Script auto-sync status">
-              <span className="tt-syncDot" aria-hidden="true" />
-              <span>{statusMessage}</span>
-              <button onClick={() => sendAutomationSnapshot("manual_snapshot")}>Sync now</button>
+            <div className="tt-syncIndicator" style={{ background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0' }}>
+              <span className="tt-syncDot" aria-hidden="true" style={{ background: '#22c55e' }} />
+              <span>Firebase Database Synced ⚡ ({user.email})</span>
             </div>
           </div>
 
@@ -859,10 +625,10 @@ function StudyTimetable() {
                         <td><span className={`tt-statusPill ${pillClass}`}>{pillLabel}</span></td>
                         <td className={`tt-rowTimer ${critical ? "critical" : ""}`}>{fmtTime(st.remaining)}</td>
                         <td className="tt-actBtns">
-                          <button className="tt-b-start" title={anotherSessionRunning ? "Pause the running session first" : "Start"} disabled={disableStart} onClick={() => startSession(r.id)}>▶</button>
-                          <button className="tt-b-pause" title="Pause" disabled={disablePause} onClick={() => pauseSession(r.id)}>⏸</button>
-                          <button className="tt-b-ext" title={canExtend ? "Extend Time" : "Extension unlocks when completed or under 10 mins remaining"} disabled={!canExtend} onClick={() => setExtendModal({ id: r.id })}>➕</button>
-                          <button className="tt-b-done" title="Complete" disabled={disableDone} onClick={() => completeSession(r.id)}>✓</button>
+                          <button className="tt-b-start" disabled={disableStart} onClick={() => startSession(r.id)}>▶</button>
+                          <button className="tt-b-pause" disabled={disablePause} onClick={() => pauseSession(r.id)}>⏸</button>
+                          <button className="tt-b-ext" disabled={!canExtend} onClick={() => setExtendModal({ id: r.id })}>➕</button>
+                          <button className="tt-b-done" disabled={disableDone} onClick={() => completeSession(r.id)}>✓</button>
                         </td>
                       </tr>
                     );
@@ -949,8 +715,8 @@ function StudyTimetable() {
                     </div>
                   </div>
                   <div className="tt-card tt-emailCard">
-                    <h3>EVENT-DRIVEN AUTO SYNC</h3>
-                    <p>Algorithm updated: App now primarily syncs exactly when you act (Start, Pause, Extend, Complete) to prevent Google Sheets from overloading.</p>
+                    <h3>FIREBASE ENGINE SECURED 🛡️</h3>
+                    <p>Google Auth is enabled. Data is locked to your account and streams instantly in real-time across all your devices.</p>
                   </div>
                 </div>
 
@@ -1032,12 +798,10 @@ function StudyTimetable() {
         const canExtend = st.status === "completed" || st.remaining <= 600;
 
         if (timerMinimized) {
-          // TOP-CENTER MINI WIDGET
           return (
             <div className="tt-timerMini" onClick={() => setTimerMinimized(false)} title="Click to open full timer">
               <span className="tt-tmIcon">{active.icon}</span>
               <span className="tt-tmSubj">{active.act}</span>
-              {/* Force solid block background so text mathematically cannot disappear */}
               <div className="tt-tmBigSolid">
                 {fmtTime(st.remaining)}
               </div>
@@ -1045,7 +809,6 @@ function StudyTimetable() {
           );
         }
 
-        // FULL MODAL
         return (
           <div className={`tt-timerModal ${done ? "done" : ""} ${critical ? "warn" : ""}`}>
             <div className="tt-tmHead">
@@ -1077,7 +840,7 @@ function StudyTimetable() {
         );
       })()}
       
-      {/* CSS For Modals and Top Timer */}
+      {/* CSS */}
       <style>{`
         .tt-modalOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 15px; }
         .tt-modalBox { background: white; width: 100%; max-width: 420px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
@@ -1091,13 +854,11 @@ function StudyTimetable() {
         .tt-modalActions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
         .tt-modalActions button { padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; border: none; cursor: pointer; }
 
-        /* THE NEW TOP CENTER MINI WIDGET */
         .tt-timerMini { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #1f2870; color: white; padding: 10px 30px; border-radius: 50px; display: flex; align-items: center; gap: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 9998; cursor: pointer; border: 2px solid #f0b429; transition: transform 0.2s; }
         .tt-timerMini:active { transform: translateX(-50%) scale(0.95); }
         .tt-timerMini .tt-tmIcon { font-size: 20px; }
         .tt-timerMini .tt-tmSubj { font-size: 16px; font-weight: 600; color: #fcd34d; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .tt-tmBigSolid { background: #ea580c; color: #ffffff; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; font-family: monospace; letter-spacing: 1px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); margin-left: 10px; }
-
         .tt-tmCloseBtn { background: #e5e7eb; color: #4b5563; border: none; padding: 6px 12px; border-radius: 12px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
         .tt-tmCloseBtn:hover { background: #d1d5db; color: #111; }
         .tt-tmHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; }
