@@ -80,6 +80,7 @@ const EXAMS_DEFAULT: Record<ExamKey, { label: string; date: string }> = {
 type SessionStatus = "notstarted" | "running" | "paused" | "completed";
 type SessionRec = { status: SessionStatus; remaining: number; endTs: number | null; warned: boolean; durationAllocated?: number; };
 type CompletedLog = { date: string; rowId: number; cat: Row["cat"]; durMin: number; ts: number };
+type ExtensionLog = { id: number; added: number; deductedId: number | 'none'; ts: number };
 
 /* =============================================================
    HELPERS
@@ -221,6 +222,7 @@ function StudyTimetable({ user }: { user: User }) {
   const [pending, setPending] = useState<number[]>([]);
   const [heatmapLog, setHeatmapLog] = useState<Record<string, number>>({});
   const [completedLog, setCompletedLog] = useState<CompletedLog[]>([]);
+  const [extensionLog, setExtensionLog] = useState<ExtensionLog[]>([]);
   const [timeShift, setTimeShift] = useState(0);
   
   // UI State
@@ -239,7 +241,7 @@ function StudyTimetable({ user }: { user: User }) {
 
   /* -- FIREBASE REAL-TIME SYNC -- */
   useEffect(() => {
-    // 1. Listen to Global User Data (Exams, Heatmap)
+    // 1. Listen to Global User Data
     const unsubUser = onSnapshot(userRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -248,7 +250,7 @@ function StudyTimetable({ user }: { user: User }) {
       }
     });
 
-    // 2. Listen to Today's Data (Sessions, Checklist, Timers)
+    // 2. Listen to Today's Data
     const unsubToday = onSnapshot(todayRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -256,10 +258,10 @@ function StudyTimetable({ user }: { user: User }) {
         if (data.checklist) setChecklist(data.checklist);
         if (data.pending) setPending(data.pending);
         if (data.completedLog) setCompletedLog(data.completedLog);
+        if (data.extensionLog) setExtensionLog(data.extensionLog);
         if (data.timeShift !== undefined) setTimeShift(data.timeShift);
       } else {
-        // Initialize daily document if it doesn't exist
-        setDoc(todayRef, { sessions: initSessions(), checklist: initChecklist(), pending: [], completedLog: [], timeShift: 0 }, { merge: true });
+        setDoc(todayRef, { sessions: initSessions(), checklist: initChecklist(), pending: [], completedLog: [], extensionLog: [], timeShift: 0 }, { merge: true });
       }
       setMounted(true);
     });
@@ -267,7 +269,6 @@ function StudyTimetable({ user }: { user: User }) {
     return () => { unsubUser(); unsubToday(); };
   }, [user.uid]);
 
-  // Push updates to Firebase
   const updateToday = (updates: Partial<any>) => setDoc(todayRef, updates, { merge: true });
   const updateUserStats = (updates: Partial<any>) => setDoc(userRef, updates, { merge: true });
 
@@ -343,17 +344,28 @@ function StudyTimetable({ user }: { user: User }) {
     return () => window.clearInterval(id);
   }, [sessions, timeShift, mounted, pending]);
 
-  const totalFocus = useMemo(() => ROWS.filter(isFocusRow).length, []);
-  const doneToday = useMemo(() => completedLog.filter((l) => l.date === todayKey()), [completedLog]);
-  const streak = useMemo(() => {
-    let s = 0; const d = new Date();
-    while (true) {
-      const key = d.toISOString().slice(0, 10);
-      if (heatmapLog[key] && heatmapLog[key] > 0) { s++; d.setDate(d.getDate() - 1); } else break;
-    }
-    return s;
-  }, [heatmapLog]);
+  /* =========================================================
+     GRADUAL LIVE PROGRESS RING LOGIC
+     ========================================================= */
+  const focusRows = useMemo(() => ROWS.filter(isFocusRow), []);
+  const totalFocusMins = focusRows.reduce((acc, r) => acc + (sessions[r.id]?.durationAllocated ?? r.dur), 0);
   
+  let studiedSecs = 0;
+  focusRows.forEach(r => {
+    const st = sessions[r.id];
+    if (!st || st.status === 'notstarted') return;
+    const allocSecs = (st.durationAllocated ?? r.dur) * 60;
+    if (st.status === 'completed') {
+      studiedSecs += allocSecs;
+    } else {
+      // Live counting: adds seconds linearly as the timer ticks down
+      studiedSecs += Math.max(0, allocSecs - st.remaining);
+    }
+  });
+  
+  const studiedMins = studiedSecs / 60;
+  const progressPct = totalFocusMins ? Math.min(1, studiedMins / totalFocusMins) : 0;
+
   useEffect(() => {
     const cvs = ringRef.current;
     if (!cvs) return;
@@ -364,19 +376,19 @@ function StudyTimetable({ user }: { user: User }) {
     cvs.width = size * dpr; cvs.height = size * dpr;
     cvs.style.width = size + "px"; cvs.style.height = size + "px";
     ctx.scale(dpr, dpr);
-    const pct = totalFocus ? doneToday.length / totalFocus : 0;
+    
     ctx.clearRect(0, 0, size, size);
     const cx = size / 2, cy = size / 2, r = 34, lw = 12;
     ctx.lineWidth = lw; ctx.strokeStyle = "#e6e8f0";
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-    if (pct > 0) {
+    if (progressPct > 0) {
       ctx.strokeStyle = "#2a9d5c"; ctx.beginPath();
-      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct); ctx.stroke();
+      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progressPct); ctx.stroke();
     }
     ctx.fillStyle = "#1f2870"; ctx.font = "700 16px Oswald, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(Math.round(pct * 100) + "%", cx, cy);
-  }, [totalFocus, doneToday.length, nowTick]);
+    ctx.fillText(Math.round(progressPct * 100) + "%", cx, cy);
+  }, [progressPct, nowTick]); // Re-draws every second
 
   /* =========================================================
      ACTIONS (Pushing to Firebase)
@@ -419,12 +431,12 @@ function StudyTimetable({ user }: { user: User }) {
     const nextSessions = { ...sessions, [id]: { ...sessions[id], status: "completed", remaining: 0, endTs: null } as SessionRec };
     const finalDur = sessions[id]?.durationAllocated ?? row.dur; 
     
-    // Check if already completed to prevent duplicates
     let newLog = completedLog;
     if (!completedLog.some((l) => l.rowId === id && l.date === todayKey())) {
       newLog = [...completedLog, { date: todayKey(), rowId: id, cat: row.cat, durMin: finalDur, ts: Date.now() }];
     }
     
+    // SMART CHECKLIST: Only checks off when formally completed
     const checklistItem = ROW_CHECKLIST_MAP[id];
     const newChecklist = checklistItem ? { ...checklist, [checklistItem]: true } : checklist;
 
@@ -469,8 +481,11 @@ function StudyTimetable({ user }: { user: User }) {
        }
     }
 
+    // EXTENSION LOGGING
+    const newExtLog = [...extensionLog, { id, added: minutes, deductedId: targetDeductId, ts: Date.now() }];
+    
     setSessions(nextSessions);
-    updateToday({ sessions: nextSessions, timeShift: newShift, completedLog: newLog, checklist: newChecklist });
+    updateToday({ sessions: nextSessions, timeShift: newShift, completedLog: newLog, checklist: newChecklist, extensionLog: newExtLog });
   };
 
   const saveExamDate = (key: ExamKey, val: string) => {
@@ -507,6 +522,15 @@ function StudyTimetable({ user }: { user: User }) {
 
   const runningRow = ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "running") || null;
   const todayIdx = (now.getDay() + 6) % 7;
+  
+  const streak = useMemo(() => {
+    let s = 0; const d = new Date();
+    while (true) {
+      const key = d.toISOString().slice(0, 10);
+      if (heatmapLog[key] && heatmapLog[key] > 0) { s++; d.setDate(d.getDate() - 1); } else break;
+    }
+    return s;
+  }, [heatmapLog]);
 
   const heatmapCells = useMemo(() => {
     const cells: { key: string; count: number }[] = [];
@@ -729,12 +753,15 @@ function StudyTimetable({ user }: { user: User }) {
                     <h3>TODAY&apos;S PROGRESS</h3>
                     <div className="tt-ringWrap">
                       <canvas ref={ringRef} className="tt-ringCanvas" />
+                      
+                      {/* LIVE PROGRESS HTML UPDATE */}
                       <div className="tt-statList">
-                        <div>Hours: <b>{(doneToday.reduce((a, b) => a + b.durMin, 0) / 60).toFixed(1)}h</b></div>
-                        <div>Completed: <b>{doneToday.length}</b></div>
-                        <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
-                        <div>Streak: <b>{streak}</b>d 🔥</div>
+                        <div>Total Goal: <b>{(totalFocusMins / 60).toFixed(1)} hrs</b></div>
+                        <div>Completed: <b>{(studiedMins / 60).toFixed(2)} hrs</b></div>
+                        <div>Remaining: <b>{Math.max(0, (totalFocusMins - studiedMins) / 60).toFixed(2)} hrs</b></div>
+                        <div style={{ color: '#22c55e', marginTop: '4px', fontSize: '11px', fontWeight: 'bold' }}>● LIVE PROGRESS</div>
                       </div>
+
                     </div>
                   </div>
                 </div>
@@ -790,38 +817,46 @@ function StudyTimetable({ user }: { user: User }) {
         </div>
       </div>
 
-      {/* EXTENSION MODAL (Overlay Form) */}
+      {/* IMPROVED EXTENSION MODAL (Safe UI) */}
       {extendModal && (
         <div className="tt-modalOverlay">
-          <div className="tt-modalBox">
-            <h3>Extend Session: {ROWS.find(r => r.id === extendModal.id)?.act}</h3>
+          <div className="tt-modalBox" style={{ borderTop: "6px solid #1f2870", padding: "30px", maxWidth: "450px" }}>
+            <h3 style={{ fontSize: '22px', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '15px' }}>
+              ⚙️ Tactical Time Adjustment
+            </h3>
+            <div style={{ marginBottom: "20px", color: '#475569', fontSize: '14px' }}>
+              Target Subject: <b style={{ color: '#1f2870' }}>{ROWS.find(r => r.id === extendModal.id)?.act}</b>
+            </div>
+
             <div style={{ marginBottom: "20px" }}>
-              <label>Minutes to Add:</label>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#64748b' }}>MINUTES TO ADD:</label>
               <div className="tt-extBtnGroup">
                 {[15, 30, 45, 60].map(m => (
                   <button key={m} className={extendMins === m ? "active" : ""} onClick={() => setExtendMins(m)}>+{m}</button>
                 ))}
               </div>
-              <input type="number" value={extendMins} onChange={(e) => setExtendMins(Math.max(1, Number(e.target.value)))} min="1" />
+              <input type="number" value={extendMins} onChange={(e) => setExtendMins(Math.max(1, Number(e.target.value)))} min="1" style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '18px' }} />
             </div>
-            <div style={{ marginBottom: "20px" }}>
-              <label>Deduct time from (Optional Trade):</label>
-              <select value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}>
-                <option value="none">-- Do not deduct --</option>
+
+            <div style={{ marginBottom: "25px" }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px', color: '#64748b' }}>DEDUCT FROM (OPTIONAL TRADE):</label>
+              <select value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))} style={{ cursor: 'pointer', background: '#f8fafc', fontWeight: 'bold' }}>
+                <option value="none">-- Add absolute time (No deduction) --</option>
                 {ROWS.filter(r => isFocusRow(r) && r.id !== extendModal.id && sessions[r.id]?.status !== "completed" && sessions[r.id]?.remaining >= extendMins * 60).map(r => (
-                  <option key={r.id} value={r.id}>{r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)</option>
+                  <option key={r.id} value={r.id}>Deduct from {r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)</option>
                 ))}
               </select>
             </div>
-            <div className="tt-modalActions">
-              <button onClick={() => setExtendModal(null)} style={{ background: "#f3f4f6", color: "#374151" }}>Cancel</button>
-              <button onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }} style={{ background: "#1f2870", color: "#ffffff" }}>Confirm Extension</button>
+
+            <div className="tt-modalActions" style={{ borderTop: '1px solid #eee', paddingTop: '20px', display: 'flex', gap: '10px' }}>
+              <button onClick={() => setExtendModal(null)} style={{ background: "#f1f5f9", color: "#64748b", flex: 1, padding: '12px', borderRadius: '8px' }}>Cancel</button>
+              <button onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }} style={{ background: "#22c55e", color: "#ffffff", flex: 2, padding: '12px', borderRadius: '8px', boxShadow: '0 4px 10px rgba(34,197,94,0.2)' }}>Confirm Adjustment</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* TIMER LOGIC */}
+      {/* MINIMIZED TIMER LOGIC */}
       {(() => {
         const active = runningRow || ROWS.find((r) => isFocusRow(r) && sessions[r.id]?.status === "paused" && sessions[r.id]?.remaining < r.dur * 60);
         if (!active) return null;
@@ -874,19 +909,135 @@ function StudyTimetable({ user }: { user: User }) {
         );
       })()}
       
-      {/* CSS */}
+      {/* CSS (KEPT YOUR EXACT ORIGINAL GLOBAL CSS) */}
       <style>{`
+        .tt-root { background: #f4f6f8; font-family: 'Inter', sans-serif; min-height: 100vh; padding: 20px; }
+        .tt-scaleWrap { width: 100%; max-width: 1400px; margin: 0 auto; }
+        .tt-app { background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); padding: 20px; }
+        
+        .tt-examStrip { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tt-examBox { flex: 1; padding: 10px; text-align: center; border-radius: 8px; color: #fff; font-family: Oswald, sans-serif; cursor: pointer; position: relative; }
+        .tt-examBox.ssc { background: #059669; }
+        .tt-examBox.gate { background: #2563eb; }
+        .tt-examBox.ese { background: #dc2626; }
+        .tt-examBox .tt-num { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
+        .tt-examBox .tt-lbl { font-size: 14px; opacity: 0.9; }
+        .tt-examBox .tt-sub { font-size: 11px; opacity: 0.7; font-family: sans-serif; margin-top: 4px; }
+        .tt-examEdit { position: absolute; top: 100%; left: 0; right: 0; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10; display: flex; gap: 5px; margin-top: 5px; }
+        .tt-examEdit input { flex: 1; padding: 4px; font-size: 12px; }
+        .tt-examEdit button { padding: 4px 8px; background: #1f2870; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
+
+        .tt-header { background: #1f2870; color: #fff; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; box-shadow: inset 0 0 40px rgba(0,0,0,0.2); position: relative; overflow: hidden; }
+        .tt-headerTop { display: flex; justify-content: space-between; align-items: flex-start; }
+        .tt-brandIcon { font-size: 32px; margin-bottom: 10px; text-align: left; }
+        .tt-rulesList { text-align: left; font-size: 12px; line-height: 1.6; opacity: 0.85; font-family: monospace; }
+        .tt-rulesList span { color: #f0b429; margin-right: 6px; }
+        .tt-titleBlock h1 { margin: 0 0 10px 0; font-size: 36px; font-family: Oswald, sans-serif; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .tt-examTags { font-size: 13px; font-weight: bold; background: #fff; display: inline-block; padding: 4px 15px; border-radius: 20px; color: #333; margin-bottom: 15px; }
+        .tt-examTags b.blue { color: #2563eb; } .tt-examTags b.red { color: #dc2626; } .tt-examTags b.green { color: #059669; } .tt-examTags b.purple { color: #9333ea; } .tt-examTags b.orange { color: #ea580c; }
+        .tt-motto { font-size: 14px; font-weight: bold; color: #f0b429; letter-spacing: 2px; }
+        .tt-targetBlock { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; line-height: 1.8; border: 1px solid rgba(255,255,255,0.2); }
+        .tt-targetBlock .t1 { color: #f87171; } .tt-targetBlock .t2 { color: #60a5fa; } .tt-targetBlock .t3 { color: #4ade80; }
+        .tt-liveRow { display: flex; justify-content: center; gap: 30px; margin: 20px 0 15px 0; align-items: center; }
+        .tt-greet { font-size: 18px; font-weight: bold; color: #fcd34d; }
+        .tt-clock { font-size: 24px; font-family: monospace; font-weight: bold; background: rgba(0,0,0,0.2); padding: 6px 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
+        .tt-quoteBar { background: #f0b429; color: #111; padding: 8px; font-size: 14px; font-style: italic; font-weight: 600; border-radius: 4px; margin: 0 auto; max-width: 800px; margin-bottom: 15px; }
+
+        .tt-mainGrid { display: flex; gap: 20px; }
+        .tt-leftCol { flex: 1; }
+        .tt-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 14px; }
+        .tt-table th { background: #e2e8f0; color: #475569; padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .tt-table th:first-child { border-radius: 6px 0 0 6px; } .tt-table th:last-child { border-radius: 0 6px 6px 0; }
+        .tt-table td { padding: 12px 10px; background: #fff; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .tt-table td:first-child { border-left: 1px solid #f1f5f9; border-radius: 6px 0 0 6px; }
+        .tt-table td:last-child { border-right: 1px solid #f1f5f9; border-radius: 0 6px 6px 0; }
+        .tt-rowLIFE td { background: #f8fafc; color: #64748b; }
+        .tt-rowRUN td { background: #fffbeb; border-color: #fde68a; }
+        .tt-rowRUN td:first-child { border-left: 4px solid #f59e0b; }
+        .tt-rowPAUSE td { background: #fef2f2; }
+        .tt-rowPAUSE td:first-child { border-left: 4px solid #ef4444; }
+        .tt-rowDONE td { background: #f0fdf4; opacity: 0.8; }
+        .tt-rowDONE td:first-child { border-left: 4px solid #22c55e; }
+        .tt-rowIcon { font-size: 18px; text-align: center; }
+        .tt-statusPill { font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 12px; }
+        .tt-st-notstarted { background: #f1f5f9; color: #64748b; }
+        .tt-st-running { background: #f59e0b; color: #fff; animation: pulse 2s infinite; }
+        .tt-st-paused { background: #ef4444; color: #fff; }
+        .tt-st-completed { background: #22c55e; color: #fff; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+        
+        .tt-rowTimer { font-family: monospace; font-size: 16px; font-weight: bold; color: #333; }
+        .tt-rowTimer.critical { color: #ef4444; animation: blink 1s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+        
+        .tt-actBtns { display: flex; gap: 4px; }
+        .tt-actBtns button { width: 28px; height: 28px; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: 0.2s; }
+        .tt-actBtns button:disabled { opacity: 0.3; cursor: not-allowed; }
+        .tt-b-start { background: #1f2870; color: #fff; } .tt-b-start:not(:disabled):hover { background: #2a3699; }
+        .tt-b-pause { background: #f59e0b; color: #fff; } .tt-b-pause:not(:disabled):hover { background: #d97706; }
+        .tt-b-ext { background: #8b5cf6; color: #fff; } .tt-b-ext:not(:disabled):hover { background: #7c3aed; }
+        .tt-b-done { background: #22c55e; color: #fff; } .tt-b-done:not(:disabled):hover { background: #16a34a; }
+
+        .tt-pendingBox { background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 15px; margin-top: 20px; }
+        .tt-pendingBox h3 { margin: 0 0 10px 0; font-size: 14px; color: #c53030; }
+        .tt-pendingList { display: flex; flex-wrap: wrap; gap: 10px; }
+        .tt-pendingItem { background: #fff; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; border: 1px solid #fed7d7; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tt-pendingItem button { background: #c53030; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .tt-pendingItem button:hover { background: #9b2c2c; }
+        .tt-pendingEmpty { font-size: 13px; color: #718096; font-style: italic; }
+
+        .tt-bottomGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px; }
+        .tt-col { display: flex; flex-direction: column; gap: 20px; }
+        .tt-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); overflow: hidden; display: flex; flex-direction: column; }
+        .tt-card h3 { background: #f8fafc; margin: 0; padding: 12px; font-size: 13px; color: #475569; border-bottom: 1px solid #e2e8f0; letter-spacing: 0.5px; }
+        .tt-cardBody { padding: 15px; font-size: 13px; flex: 1; }
+        
+        .tt-rotationTable { width: 100%; border-collapse: collapse; }
+        .tt-rotationTable td { padding: 6px; border-bottom: 1px solid #f1f5f9; }
+        .tt-rotationTable tr.today td { background: #eff6ff; color: #1d4ed8; font-weight: bold; }
+        
+        .tt-analyticsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px; }
+        .tt-analyticsGrid > div { background: #f8fafc; padding: 10px; border-radius: 6px; text-align: center; font-size: 10px; color: #64748b; font-weight: bold; }
+        .tt-analyticsGrid b { display: block; font-size: 16px; color: #1f2870; margin-bottom: 2px; font-family: Oswald, sans-serif; }
+        
+        .tt-examCoverage { list-style: none; padding: 0; margin: 0; }
+        .tt-examCoverage li { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; color: #334155; font-weight: 500; }
+        .tt-examCoverage li:before { content: "•"; color: #3b82f6; font-weight: bold; display: inline-block; width: 1em; }
+        
+        .tt-ringWrap { display: flex; align-items: center; padding: 15px; gap: 15px; }
+        .tt-ringCanvas { width: 84px; height: 84px; }
+        .tt-statList { font-size: 13px; color: #475569; line-height: 1.6; }
+        .tt-statList b { color: #1f2870; font-size: 15px; }
+        
+        .tt-goldenRules { list-style: none; padding: 0; margin: 0; }
+        .tt-goldenRules li { padding: 5px 0; font-weight: 600; color: #1f2870; }
+        .tt-goldenRules li:before { content: "★"; color: #f59e0b; margin-right: 6px; }
+        
+        .tt-emailCard { background: #f0fdf4; border-color: #bbf7d0; }
+        .tt-emailCard h3 { background: #dcfce7; color: #166534; border-bottom-color: #bbf7d0; }
+        .tt-emailCard p { padding: 15px; font-size: 12px; color: #166534; margin: 0; line-height: 1.5; font-weight: 500; }
+        
+        .tt-heatmapWrap { padding: 15px; }
+        .tt-heatmapGrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; margin-bottom: 10px; }
+        .tt-hcell { aspect-ratio: 1; background: #ebedf0; border-radius: 2px; }
+        .tt-hcell.l1 { background: #9be9a8; } .tt-hcell.l2 { background: #40c463; } .tt-hcell.l3 { background: #30a14e; } .tt-hcell.l4 { background: #216e39; }
+        .tt-heatmapLegend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; color: #64748b; }
+        .tt-heatmapLegend .tt-hcell { width: 10px; height: 10px; }
+        
+        .tt-checklist { padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .tt-checklist label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; }
+        .tt-checklist input { width: 16px; height: 16px; cursor: pointer; }
+        
+        .tt-rememberBox { background: #1f2870; color: #fff; text-align: center; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 13px; line-height: 1.6; border: 2px solid #f0b429; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .tt-footerQuote { text-align: center; margin-top: 30px; font-size: 12px; font-weight: bold; color: #94a3b8; letter-spacing: 1px; }
+        
+        /* SAFE CSS ADDITIONS FOR THE NEW MODAL ONLY */
         .tt-modalOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 15px; }
-        .tt-modalBox { background: white; width: 100%; max-width: 420px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-        .tt-modalBox h3 { margin-top: 0; color: #1f2870; font-size: 20px; font-weight: 800; margin-bottom: 16px; }
-        .tt-modalBox label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #4b5563; }
-        .tt-modalBox select, .tt-modalBox input { width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; outline: none; }
-        .tt-modalBox select:focus, .tt-modalBox input:focus { border-color: #1f2870; }
+        .tt-modalBox { background: white; width: 100%; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
         .tt-extBtnGroup { display: flex; gap: 8px; margin-bottom: 12px; }
         .tt-extBtnGroup button { flex: 1; padding: 8px 0; font-size: 14px; font-weight: 600; background: #f3f4f6; color: #4b5563; border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: 0.2s; }
         .tt-extBtnGroup button.active { background: #e0e7ff; color: #1f2870; border-color: #1f2870; }
-        .tt-modalActions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
-        .tt-modalActions button { padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; border: none; cursor: pointer; }
+        .tt-modalActions button { font-weight: bold; font-size: 14px; border: none; cursor: pointer; }
 
         .tt-timerMini { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #1f2870; color: white; padding: 10px 30px; border-radius: 50px; display: flex; align-items: center; gap: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 9998; cursor: pointer; border: 2px solid #f0b429; transition: transform 0.2s; }
         .tt-timerMini:active { transform: translateX(-50%) scale(0.95); }
