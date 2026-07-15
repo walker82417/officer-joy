@@ -242,6 +242,7 @@ function StudyTimetable({ user }: { user: User }) {
 
   /* -- FIREBASE REAL-TIME SYNC -- */
   useEffect(() => {
+    // 1. Listen to Global User Data
     const unsubUser = onSnapshot(userRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -250,6 +251,7 @@ function StudyTimetable({ user }: { user: User }) {
       }
     });
 
+    // 2. Listen to Today's Data
     const unsubToday = onSnapshot(todayRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -451,13 +453,14 @@ function StudyTimetable({ user }: { user: User }) {
       newLog = [...completedLog, { date: todayKey(), rowId: id, cat: row.cat, durMin: finalDur, ts: Date.now() }];
     }
     
+    // SMART CHECKLIST: Only triggers when the ✓ Complete button is clicked manually
     const checklistItem = ROW_CHECKLIST_MAP[id];
     const newChecklist = checklistItem ? { ...checklist, [checklistItem]: true } : checklist;
 
     playCompleteChime();
     setSessions(nextSessions);
     
-    // FIREBASE BUG FIX: Forces standard object merge so it saves properly!
+    // FIREBASE BUG FIX: Securely merge to ensure email pulls the correct streak
     const nextHeatmapLog = { ...heatmapLog, [todayKey()]: (heatmapLog[todayKey()] || 0) + 1 };
     setHeatmapLog(nextHeatmapLog);
 
@@ -481,14 +484,14 @@ function StudyTimetable({ user }: { user: User }) {
     nextSessions[id] = { ...st, status: status as SessionStatus, remaining, endTs, durationAllocated: oldAllocated + minutes, warned: false };
     let newShift = timeShift;
 
-    // PENDING MISSIONS BUG FIX: Accurately subtracts the time from the traded subject
+    // PENDING MISSIONS BUG FIX: Mathematically subtracts the time from the traded subject
     if (targetDeductId !== 'none' && nextSessions[targetDeductId]) {
       const dst = nextSessions[targetDeductId];
       const oldDstAlloc = dst.durationAllocated ?? (ROWS.find(r => r.id === targetDeductId)?.dur || 0);
       nextSessions[targetDeductId] = { 
         ...dst, 
         remaining: Math.max(0, dst.remaining - minutes * 60),
-        durationAllocated: Math.max(0, oldDstAlloc - minutes) // This updates Pending Missions display
+        durationAllocated: Math.max(0, oldDstAlloc - minutes) // This updates Pending Missions display natively
       };
     } else {
       newShift += minutes;
@@ -510,7 +513,7 @@ function StudyTimetable({ user }: { user: User }) {
        }
     }
 
-    // EXTENSION TRACKING
+    // EXTENSION TRACKING LOGIC (For Email Script)
     const deductedFrom = targetDeductId !== 'none' ? ROWS.find((r) => r.id === targetDeductId)?.act || String(targetDeductId) : null;
     const extensionEntry = {
       date: todayKey(), rowId: id, activity: ROWS.find((r) => r.id === id)?.act || String(id),
@@ -608,267 +611,290 @@ function StudyTimetable({ user }: { user: User }) {
      ========================================================= */
   return (
     <div className="tt-root">
-      <div className="tt-app">
-        
-        {/* EXAM STRIP */}
-        <div className="tt-examStrip">
-          {(["ssc", "gate", "ese"] as ExamKey[]).map((key) => {
-            const e = examDates[key];
-            const c = mounted ? countdownParts(e.date) : { d: 0, h: 0, m: 0, s: 0 };
-            return (
-              <div key={key} className={`tt-examBox ${key}`} onClick={() => setEditingExam((cur) => (cur === key ? null : key))}>
-                <div className="tt-num">
-                  {mounted ? `${c.d}d : ${String(c.h).padStart(2, "0")}h : ${String(c.m).padStart(2, "0")}m : ${String(c.s).padStart(2, "0")}s` : "-- : -- : -- : --"}
-                </div>
-                <div className="tt-lbl">TO {e.label}</div>
-                <div className="tt-sub">target: {e.date} (tap to edit)</div>
-                {editingExam === key && (
-                  <div className="tt-examEdit" onClick={(ev) => ev.stopPropagation()}>
-                    <input type="date" defaultValue={e.date} onKeyDown={(ev) => { if (ev.key === "Enter") saveExamDate(key, (ev.target as HTMLInputElement).value); }} id={`edit_${key}`} />
-                    <button onClick={() => { const el = document.getElementById(`edit_${key}`) as HTMLInputElement | null; if (el) saveExamDate(key, el.value); }}>Save</button>
+      <div className="tt-scaleWrap">
+        <div className="tt-app">
+          
+          {/* EXAM STRIP */}
+          <div className="tt-examStrip">
+            {(["ssc", "gate", "ese"] as ExamKey[]).map((key) => {
+              const e = examDates[key];
+              const c = mounted ? countdownParts(e.date) : { d: 0, h: 0, m: 0, s: 0 };
+              return (
+                <div key={key} className={`tt-examBox ${key}`} onClick={() => setEditingExam((cur) => (cur === key ? null : key))}>
+                  <div className="tt-num">
+                    {mounted ? `${c.d}d : ${String(c.h).padStart(2, "0")}h : ${String(c.m).padStart(2, "0")}m : ${String(c.s).padStart(2, "0")}s` : "-- : -- : -- : --"}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  <div className="tt-lbl">TO {e.label}</div>
+                  <div className="tt-sub">target: {e.date} (tap to edit)</div>
+                  {editingExam === key && (
+                    <div className="tt-examEdit" onClick={(ev) => ev.stopPropagation()}>
+                      <input type="date" defaultValue={e.date} onKeyDown={(ev) => { if (ev.key === "Enter") saveExamDate(key, (ev.target as HTMLInputElement).value); }} id={`edit_${key}`} />
+                      <button onClick={() => { const el = document.getElementById(`edit_${key}`) as HTMLInputElement | null; if (el) saveExamDate(key, el.value); }}>Save</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
-        {/* HEADER AREA */}
-        <div className="tt-header">
-          <div className="tt-headerTop">
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <div className="tt-brandIcon">💡</div>
-              <div className="tt-rulesList">
-                <div><span>✔</span>Plan Your Work</div>
-                <div><span>✔</span>Work Your Plan</div>
-                <div><span>✔</span>Stay Consistent</div>
-                <div><span>✔</span>Success is Inevitable</div>
+          {/* HEADER AREA */}
+          <div className="tt-header">
+            <div className="tt-headerTop">
+              <div style={{ flex: 1, minWidth: '200px' }}>
+                <div className="tt-brandIcon">💡</div>
+                <div className="tt-rulesList">
+                  <div><span>✔</span>Plan Your Work</div>
+                  <div><span>✔</span>Work Your Plan</div>
+                  <div><span>✔</span>Stay Consistent</div>
+                  <div><span>✔</span>Success is Inevitable</div>
+                </div>
+              </div>
+              
+              <div className="tt-titleBlock">
+                <h1>UNIVERSAL STUDY TIMETABLE</h1>
+                <div className="tt-examTags">
+                  <b className="blue">UPSC ESE (ELECTRICAL)</b> | <b className="red">MPSC</b> | <b className="green">SSC JE</b> | <b className="purple">RRB JE</b> | <b className="orange">SSC CGL</b> | <b className="blue">RAILWAYS</b>
+                </div>
+              </div>
+              
+              <div className="tt-targetBlock">
+                🎯<br /><span className="t1">FOCUS</span><br /><span className="t2">DISCIPLINE</span><br /><span className="t3">SUCCESS</span>
               </div>
             </div>
             
-            <div className="tt-titleBlock">
-              <h1>UNIVERSAL STUDY TIMETABLE</h1>
-              <div className="tt-examTags">
-                <b className="blue">UPSC ESE (ELECTRICAL)</b> | <b className="red">MPSC</b> | <b className="green">SSC JE</b> | <b className="purple">RRB JE</b> | <b className="orange">SSC CGL</b> | <b className="blue">RAILWAYS</b>
-              </div>
+            <div className="tt-motto">★ ★ &nbsp; ONE DAY OR DAY ONE. YOU DECIDE. &nbsp; ★ ★</div>
+
+            <div className="tt-liveRow">
+              <div className="tt-greet">{greetLine}</div>
+              <div className="tt-clock">{clockLine}</div>
             </div>
             
-            <div className="tt-targetBlock">
-              🎯<br /><span className="t1">FOCUS</span><br /><span className="t2">DISCIPLINE</span><br /><span className="t3">SUCCESS</span>
+            <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
+            
+            <div className="tt-syncIndicatorWrap">
+              <div className="tt-syncIndicator">
+                <span className="tt-syncDot" aria-hidden="true" />
+                <span>Firebase Database Synced ⚡ ({user.email})</span>
+              </div>
             </div>
           </div>
-          
-          <div className="tt-motto">★ ★ &nbsp; ONE DAY OR DAY ONE. YOU DECIDE. &nbsp; ★ ★</div>
 
-          <div className="tt-liveRow">
-            <div className="tt-greet">{greetLine}</div>
-            <div className="tt-clock">{clockLine}</div>
-          </div>
-          
-          <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
-          
-          <div className="tt-syncIndicatorWrap">
-            <div className="tt-syncIndicator">
-              <span className="tt-syncDot" aria-hidden="true" />
-              <span>Firebase Database Synced ⚡ ({user.email})</span>
-            </div>
-          </div>
-        </div>
+          {/* MAIN GRID */}
+          <div className="tt-mainGrid">
+            <table className="tt-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "4%" }}></th><th style={{ width: "9%" }}>TIME</th><th style={{ width: "29%" }}>ACTIVITY</th><th style={{ width: "29%" }}>FOCUS / SUBJECT</th><th style={{ width: "8%", textAlign: "center" }}>STATUS</th><th style={{ width: "9%", textAlign: "center" }}>TIMER</th><th style={{ width: "12%", textAlign: "center" }}>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {ROWS.map((r) => {
+                  if (!isFocusRow(r)) {
+                    return (
+                      <tr key={r.id} className="tt-rowLIFE">
+                        <td className="tt-rowIcon">{r.icon}</td><td>{displayedStart(r)}</td><td><b>{r.act}</b></td><td>{r.focus}</td><td colSpan={3} style={{ textAlign: "center" }}>— not a focus session —</td>
+                      </tr>
+                    );
+                  }
+                  const st = sessions[r.id];
+                  const rowClass = st.status === "running" ? "tt-rowRUN" : st.status === "paused" ? "tt-rowPAUSE" : st.status === "completed" ? "tt-rowDONE" : "tt-rowNS";
+                  const pillClass = "tt-st-" + st.status;
+                  const pillLabel = st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase();
+                  const critical = st.status === "running" && st.remaining <= 5;
+                  const anotherSessionRunning = Boolean(runningRow && runningRow.id !== r.id);
+                  const disableStart = st.status === "running" || st.status === "completed" || anotherSessionRunning;
+                  const disablePause = st.status !== "running";
+                  const disableDone = st.status === "completed" || st.status === "notstarted" || st.remaining > 10 * 60;
+                  const canExtend = st.status === "completed" || st.remaining <= 600;
 
-        {/* MAIN GRID */}
-        <div className="tt-mainGrid">
-          <table className="tt-table">
-            <thead>
-              <tr>
-                <th style={{ width: "4%" }}></th><th style={{ width: "9%" }}>TIME</th><th style={{ width: "29%" }}>ACTIVITY</th><th style={{ width: "29%" }}>FOCUS / SUBJECT</th><th style={{ width: "8%", textAlign: "center" }}>STATUS</th><th style={{ width: "9%", textAlign: "center" }}>TIMER</th><th style={{ width: "12%", textAlign: "center" }}>ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map((r) => {
-                if (!isFocusRow(r)) {
                   return (
-                    <tr key={r.id} className="tt-rowLIFE">
-                      <td className="tt-rowIcon">{r.icon}</td><td>{displayedStart(r)}</td><td><b>{r.act}</b></td><td>{r.focus}</td><td colSpan={3} style={{ textAlign: "center" }}>— not a focus session —</td>
+                    <tr key={r.id} className={rowClass}>
+                      <td className="tt-rowIcon">{r.icon}</td>
+                      <td>{displayedStart(r)}</td>
+                      <td><b>{r.act}</b></td>
+                      <td>{r.focus}</td>
+                      <td style={{ textAlign: "center" }}><span className={`tt-statusPill ${pillClass}`}>{pillLabel}</span></td>
+                      <td style={{ textAlign: "center" }} className={`tt-rowTimer ${critical ? "critical" : ""}`}>{fmtTime(st.remaining)}</td>
+                      <td className="tt-actBtns" style={{ justifyContent: "center" }}>
+                        <button className="tt-b-start" disabled={disableStart} onClick={() => startSession(r.id)}>▶</button>
+                        <button className="tt-b-pause" disabled={disablePause} onClick={() => pauseSession(r.id)}>⏸</button>
+                        <button className="tt-b-ext" disabled={!canExtend} onClick={() => setExtendModal({ id: r.id })}>➕</button>
+                        <button className="tt-b-done" disabled={disableDone} onClick={() => completeSession(r.id)}>✓</button>
+                      </td>
                     </tr>
                   );
-                }
-                const st = sessions[r.id];
-                const rowClass = st.status === "running" ? "tt-rowRUN" : st.status === "paused" ? "tt-rowPAUSE" : st.status === "completed" ? "tt-rowDONE" : "tt-rowNS";
-                const pillClass = "tt-st-" + st.status;
-                const pillLabel = st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase();
-                const critical = st.status === "running" && st.remaining <= 5;
-                const anotherSessionRunning = Boolean(runningRow && runningRow.id !== r.id);
-                const disableStart = st.status === "running" || st.status === "completed" || anotherSessionRunning;
-                const disablePause = st.status !== "running";
-                const disableDone = st.status === "completed" || st.status === "notstarted" || st.remaining > 10 * 60;
-                const canExtend = st.status === "completed" || st.remaining <= 600;
-
-                return (
-                  <tr key={r.id} className={rowClass}>
-                    <td className="tt-rowIcon">{r.icon}</td>
-                    <td>{displayedStart(r)}</td>
-                    <td><b>{r.act}</b></td>
-                    <td>{r.focus}</td>
-                    <td style={{ textAlign: "center" }}><span className={`tt-statusPill ${pillClass}`}>{pillLabel}</span></td>
-                    <td style={{ textAlign: "center" }} className={`tt-rowTimer ${critical ? "critical" : ""}`}>{fmtTime(st.remaining)}</td>
-                    <td className="tt-actBtns" style={{ justifyContent: "center" }}>
-                      <button className="tt-b-start" disabled={disableStart} onClick={() => startSession(r.id)}>▶</button>
-                      <button className="tt-b-pause" disabled={disablePause} onClick={() => pauseSession(r.id)}>⏸</button>
-                      <button className="tt-b-ext" disabled={!canExtend} onClick={() => setExtendModal({ id: r.id })}>➕</button>
-                      <button className="tt-b-done" disabled={disableDone} onClick={() => completeSession(r.id)}>✓</button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {/* PENDING MISSIONS (Now showing deducted remaining time) */}
-          {pending.length > 0 && (
-            <div className="tt-pendingBox">
-              <h3>⚠ PENDING MISSIONS</h3>
-              <div className="tt-pendingList">
-                {pending.map((id) => {
-                  const r = ROWS.find((x) => x.id === id);
-                  if (!r) return null;
-                  const currentAlloc = sessions[id]?.durationAllocated ?? r.dur;
-                  return (
-                    <div key={id} className="tt-pendingItem">
-                      {r.icon} {r.act} <span style={{ color: "#999" }}>({currentAlloc}m)</span>
-                      <button onClick={() => startSession(id)}>Reschedule Now</button>
-                    </div>
-                  );
                 })}
-              </div>
-            </div>
-          )}
+              </tbody>
+            </table>
 
-          {/* BOTTOM GRID */}
-          <div className="tt-bottomGrid">
-            <div className="tt-col">
-              <div className="tt-card">
-                <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
-                <div className="tt-cardBody" style={{ padding: 0 }}>
-                  <table className="tt-rotationTable">
-                    <tbody>
-                      {ROTATION.map(([day, subj], i) => (
-                        <tr key={day} className={i === todayIdx ? "today" : ""}><td><b>{day}</b></td><td>{subj}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {/* PENDING MISSIONS (Now showing deducted remaining time) */}
+            {pending.length > 0 && (
+              <div className="tt-pendingBox">
+                <h3>⚠ PENDING MISSIONS</h3>
+                <div className="tt-pendingList">
+                  {pending.map((id) => {
+                    const r = ROWS.find((x) => x.id === id);
+                    if (!r) return null;
+                    const currentAlloc = sessions[id]?.durationAllocated ?? r.dur;
+                    return (
+                      <div key={id} className="tt-pendingItem">
+                        {r.icon} {r.act} <span style={{ color: "#999" }}>({currentAlloc}m)</span>
+                        <button onClick={() => startSession(id)}>Reschedule Now</button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              <div className="tt-card">
-                <h3>ANALYTICS OVERVIEW</h3>
-                <div className="tt-analyticsGrid">
-                  {analytics.cells.slice(0, 2).map(([l, v]) => (
-                    <div key={l}><b>{v}</b>{l}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            )}
 
-            <div className="tt-col">
-              <div className="tt-card">
-                <h3>EXAM COVERAGE</h3>
-                <div className="tt-cardBody">
-                  <ul className="tt-examCoverage">
-                    <li>UPSC ESE (Electrical)</li><li>RRB JE / SSE</li><li>MPSC Engineering Services</li><li>SSC CGL / CHSL / MTS</li><li>SSC JE</li><li>SSC GD</li><li>Railways NTPC / Group D</li>
-                  </ul>
+            {/* BOTTOM GRID */}
+            <div className="tt-bottomGrid">
+              <div className="tt-col">
+                <div className="tt-card">
+                  <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
+                  <div className="tt-cardBody" style={{ padding: 0 }}>
+                    <table className="tt-rotationTable">
+                      <tbody>
+                        {ROTATION.map(([day, subj], i) => (
+                          <tr key={day} className={i === todayIdx ? "today" : ""}><td><b>{day}</b></td><td>{subj}</td></tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-              <div className="tt-card">
-                <h3>TODAY&apos;S PROGRESS</h3>
-                <div className="tt-ringWrap">
-                  <canvas ref={ringRef} className="tt-ringCanvas" />
-                  <div className="tt-statList">
-                    <div>Studied: <b>{(liveProgress.studied / 60).toFixed(1)}h</b> / {(liveProgress.allocated / 60).toFixed(1)}h</div>
-                    <div>Completed: <b>{doneToday.length}</b></div>
-                    <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
-                    <div>Streak: <b>{streak}</b>d 🔥</div>
+                <div className="tt-card">
+                  <h3>ANALYTICS OVERVIEW</h3>
+                  <div className="tt-analyticsGrid">
+                    {analytics.cells.slice(0, 2).map(([l, v]) => (
+                      <div key={l}><b>{v}</b>{l}</div>
+                    ))}
                   </div>
                 </div>
               </div>
-            </div>
 
-            <div className="tt-col">
-              <div className="tt-card">
-                <h3>GOLDEN RULES</h3>
-                <div className="tt-cardBody">
-                  <ul className="tt-goldenRules">
-                    <li>Be Consistent</li><li>Revise Regularly</li><li>Follow the Plan</li><li>Take Mock Tests</li><li>Avoid Distractions</li><li>Analyze &amp; Improve</li><li>Believe in Yourself</li>
-                  </ul>
-                </div>
-              </div>
-              <div className="tt-card tt-emailCard">
-                <h3>FIREBASE ENGINE SECURED 🛡️</h3>
-                <p>Google Auth + Email Password is enabled. Data is locked to your account and streams instantly in real-time across all your devices.</p>
-              </div>
-            </div>
-
-            <div className="tt-col">
-              <div className="tt-card">
-                <h3>CONSISTENCY HEATMAP (12 weeks)</h3>
-                <div className="tt-heatmapWrap">
-                  <div className="tt-heatmapGrid">
-                    {heatmapCells.map(({ key, count }) => {
-                      let cls = "tt-hcell";
-                      if (count >= 1 && count < 3) cls += " l1";
-                      else if (count >= 3 && count < 6) cls += " l2";
-                      else if (count >= 6 && count < 9) cls += " l3";
-                      else if (count >= 9) cls += " l4";
-                      return <div key={key} className={cls} title={`${key}: ${count} sessions`} />;
-                    })}
+              <div className="tt-col">
+                <div className="tt-card">
+                  <h3>EXAM COVERAGE</h3>
+                  <div className="tt-cardBody">
+                    <ul className="tt-examCoverage">
+                      <li>UPSC ESE (Electrical)</li><li>RRB JE / SSE</li><li>MPSC Engineering Services</li><li>SSC CGL / CHSL / MTS</li><li>SSC JE</li><li>SSC GD</li><li>Railways NTPC / Group D</li>
+                    </ul>
                   </div>
-                  <div className="tt-heatmapLegend">
-                    Less <span className="tt-hcell" /> <span className="tt-hcell l1" /> <span className="tt-hcell l2" /> <span className="tt-hcell l3" /> <span className="tt-hcell l4" /> More
+                </div>
+                <div className="tt-card">
+                  <h3>TODAY&apos;S PROGRESS</h3>
+                  <div className="tt-ringWrap">
+                    <canvas ref={ringRef} className="tt-ringCanvas" />
+                    <div className="tt-statList">
+                      <div>Studied: <b>{(liveProgress.studied / 60).toFixed(1)}h</b> / {(liveProgress.allocated / 60).toFixed(1)}h</div>
+                      <div>Completed: <b>{doneToday.length}</b></div>
+                      <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
+                      <div>Streak: <b>{streak}</b>d 🔥</div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="tt-card">
-                <h3>TODAY&apos;S CHECKLIST</h3>
-                <div className="tt-checklist">
-                  {CHECKLIST_ITEMS.map((it) => (
-                    <label key={it}><input type="checkbox" checked={!!checklist[it]} onChange={(e) => toggleCheck(it, e.target.checked)} />{it}</label>
-                  ))}
+
+              <div className="tt-col">
+                <div className="tt-card">
+                  <h3>GOLDEN RULES</h3>
+                  <div className="tt-cardBody">
+                    <ul className="tt-goldenRules">
+                      <li>Be Consistent</li><li>Revise Regularly</li><li>Follow the Plan</li><li>Take Mock Tests</li><li>Avoid Distractions</li><li>Analyze &amp; Improve</li><li>Believe in Yourself</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="tt-card tt-emailCard">
+                  <h3>FIREBASE ENGINE SECURED 🛡️</h3>
+                  <p>Google Auth + Email Password is enabled. Data is locked to your account and streams instantly in real-time across all your devices.</p>
+                </div>
+              </div>
+
+              <div className="tt-col">
+                <div className="tt-card">
+                  <h3>CONSISTENCY HEATMAP (12 weeks)</h3>
+                  <div className="tt-heatmapWrap">
+                    <div className="tt-heatmapGrid">
+                      {heatmapCells.map(({ key, count }) => {
+                        let cls = "tt-hcell";
+                        if (count >= 1 && count < 3) cls += " l1";
+                        else if (count >= 3 && count < 6) cls += " l2";
+                        else if (count >= 6 && count < 9) cls += " l3";
+                        else if (count >= 9) cls += " l4";
+                        return <div key={key} className={cls} title={`${key}: ${count} sessions`} />;
+                      })}
+                    </div>
+                    <div className="tt-heatmapLegend">
+                      Less <span className="tt-hcell" /> <span className="tt-hcell l1" /> <span className="tt-hcell l2" /> <span className="tt-hcell l3" /> <span className="tt-hcell l4" /> More
+                    </div>
+                  </div>
+                </div>
+                <div className="tt-card">
+                  <h3>TODAY&apos;S CHECKLIST</h3>
+                  <div className="tt-checklist">
+                    {CHECKLIST_ITEMS.map((it) => (
+                      <label key={it}><input type="checkbox" checked={!!checklist[it]} onChange={(e) => toggleCheck(it, e.target.checked)} />{it}</label>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="tt-footerQuote">FOCUS ON YOUR GOAL. DON&apos;T LOOK IN ANY DIRECTION BUT AHEAD. &nbsp;|&nbsp; YOUR HARD WORK WILL DEFINITELY PAY OFF. ★ ★ ★</div>
+          <div className="tt-footerQuote">FOCUS ON YOUR GOAL. DON&apos;T LOOK IN ANY DIRECTION BUT AHEAD. &nbsp;|&nbsp; YOUR HARD WORK WILL DEFINITELY PAY OFF. ★ ★ ★</div>
+        </div>
       </div>
 
-      {/* EXTENSION MODAL */}
+      {/* EXTENSION MODAL — glass-morphism */}
       {extendModal && (() => {
         const row = ROWS.find(r => r.id === extendModal.id);
         const trades = ROWS.filter(r => isFocusRow(r) && r.id !== extendModal.id && sessions[r.id]?.status !== "completed" && sessions[r.id]?.remaining >= extendMins * 60);
         return (
-          <div className="tt-modalOverlay" onClick={() => setExtendModal(null)}>
-            <div className="tt-modalBox" onClick={(e) => e.stopPropagation()}>
-              <h3>Extend Session: {row?.act}</h3>
-              <div style={{ marginBottom: "20px" }}>
-                <label>Minutes to Add:</label>
-                <div className="tt-extBtnGroup">
+          <div className="tt-glassOverlay" onClick={() => setExtendModal(null)}>
+            <div className="tt-glassBox" onClick={(e) => e.stopPropagation()}>
+              <div className="tt-glassHead">
+                <div className="tt-glassIcon">{row?.icon || "⏱"}</div>
+                <div>
+                  <div className="tt-glassEyebrow">Extend Session</div>
+                  <div className="tt-glassTitle">{row?.act}</div>
+                </div>
+                <button className="tt-glassClose" onClick={() => setExtendModal(null)} aria-label="Close">×</button>
+              </div>
+
+              <div className="tt-glassSection">
+                <div className="tt-glassLabel">Add extra minutes</div>
+                <div className="tt-glassChips">
                   {[15, 30, 45, 60].map(m => (
-                    <button key={m} className={extendMins === m ? "active" : ""} onClick={() => setExtendMins(m)}>+{m}m</button>
+                    <button key={m} className={`tt-glassChip ${extendMins === m ? "active" : ""}`} onClick={() => setExtendMins(m)}>+{m}m</button>
                   ))}
                 </div>
-                <input type="number" value={extendMins} onChange={(e) => setExtendMins(Math.max(1, Number(e.target.value)))} min="1" />
+                <div className="tt-glassStepper">
+                  <button onClick={() => setExtendMins(Math.max(1, extendMins - 5))} aria-label="Decrease">−</button>
+                  <div className="tt-glassStepperValue"><span>{extendMins}</span><small>min</small></div>
+                  <button onClick={() => setExtendMins(extendMins + 5)} aria-label="Increase">+</button>
+                </div>
               </div>
-              <div style={{ marginBottom: "20px" }}>
-                <label>Trade time from another session (Optional):</label>
-                <select value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}>
-                  <option value="none">-- Add absolute time (No deduction) --</option>
+
+              <div className="tt-glassSection">
+                <div className="tt-glassLabel">Trade time from another session <span className="tt-glassOptional">(optional)</span></div>
+                <select className="tt-glassSelect" value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}>
+                  <option value="none">— Add on top (no trade) —</option>
                   {trades.map(r => (
-                    <option key={r.id} value={r.id}>Deduct from {r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)</option>
+                    <option key={r.id} value={r.id}>{r.icon} {r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)</option>
                   ))}
                 </select>
+                <div className="tt-glassHint">
+                  {deductId === 'none'
+                    ? "This will push your schedule forward by " + extendMins + " min."
+                    : "Time will be traded silently — logged for the mission report."}
+                </div>
               </div>
-              <div className="tt-modalActions">
-                <button onClick={() => setExtendModal(null)} style={{ background: "#f1f5f9", color: "#64748b" }}>Cancel</button>
-                <button onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }} style={{ background: "#22c55e", color: "#ffffff" }}>Confirm +{extendMins}m</button>
+
+              <div className="tt-glassActions">
+                <button className="tt-glassBtn ghost" onClick={() => setExtendModal(null)}>Cancel</button>
+                <button className="tt-glassBtn primary" onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }}>
+                  Confirm +{extendMins}m
+                </button>
               </div>
             </div>
           </div>
@@ -1048,25 +1074,114 @@ function StudyTimetable({ user }: { user: User }) {
         
         .tt-footerQuote { width: 100%; background: #1f2870; color: #94a3b8; text-align: center; padding: 12px 0; font-size: 11px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-top: 20px; }
 
-        /* MODALS */
-        .tt-modalOverlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.8); z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 15px; }
-        .tt-modalBox { background: white; width: 100%; max-width: 440px; border-radius: 12px; padding: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
-        .tt-modalBox h3 { margin-top: 0; color: #1f2870; font-size: 20px; font-weight: 800; margin-bottom: 16px; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
-        .tt-modalBox label { display: block; font-weight: 700; font-size: 13px; margin-bottom: 8px; color: #475569; text-transform: uppercase; }
-        .tt-modalBox select, .tt-modalBox input { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 16px; outline: none; color: #1f2870; font-weight: bold; }
-        .tt-modalBox select:focus, .tt-modalBox input:focus { border-color: #3b82f6; }
-        .tt-extBtnGroup { display: flex; gap: 8px; margin-bottom: 12px; }
-        .tt-extBtnGroup button { flex: 1; padding: 10px 0; font-size: 14px; font-weight: 700; background: #f1f5f9; color: #475569; border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        .tt-extBtnGroup button.active { background: #eff6ff; color: #1d4ed8; border-color: #3b82f6; }
-        .tt-modalActions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
-        .tt-modalActions button { padding: 12px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; border: none; cursor: pointer; }
+        /* ===== GLASS EXTENSION MODAL ===== */
+        @keyframes ttGlassIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes ttFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .tt-glassOverlay {
+          position: fixed; inset: 0; z-index: 9999;
+          display: flex; justify-content: center; align-items: center; padding: 16px;
+          background: radial-gradient(ellipse at center, rgba(21,27,77,0.55), rgba(0,0,0,0.75));
+          backdrop-filter: blur(14px) saturate(140%);
+          animation: ttFadeIn .2s ease-out;
+        }
+        .tt-glassBox {
+          width: 100%; max-width: 440px;
+          background: linear-gradient(160deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65));
+          backdrop-filter: blur(24px) saturate(160%);
+          border: 1px solid rgba(255,255,255,0.6);
+          border-radius: 22px;
+          padding: 22px 24px 20px;
+          box-shadow: 0 24px 60px rgba(15,20,50,0.35), inset 0 1px 0 rgba(255,255,255,0.7);
+          color: #1b1e2b; font-family: 'Inter', sans-serif;
+          animation: ttGlassIn .28s cubic-bezier(.2,.9,.3,1.2);
+        }
+        .tt-glassHead { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .tt-glassIcon {
+          width: 44px; height: 44px; border-radius: 14px; flex: 0 0 auto;
+          display: flex; align-items: center; justify-content: center; font-size: 22px;
+          background: linear-gradient(145deg, #1f2870, #2a3699);
+          color: white;
+          box-shadow: 0 6px 14px rgba(31,40,112,0.35), inset 0 1px 0 rgba(255,255,255,0.2);
+        }
+        .tt-glassEyebrow { font-size: 10px; font-weight: 800; letter-spacing: 1.2px; color: #6b7280; text-transform: uppercase; }
+        .tt-glassTitle { font-size: 18px; font-weight: 900; color: #151b4d; line-height: 1.15; max-width: 280px; }
+        .tt-glassClose {
+          margin-left: auto; width: 32px; height: 32px; border-radius: 50%;
+          border: 1px solid rgba(21,27,77,0.15); background: rgba(255,255,255,0.6);
+          font-size: 20px; line-height: 1; color: #4b5563; cursor: pointer;
+          transition: transform .15s, background .15s;
+        }
+        .tt-glassClose:hover { background: #fff; transform: rotate(90deg); }
 
+        .tt-glassSection { margin-bottom: 16px; }
+        .tt-glassLabel { font-size: 12px; font-weight: 800; color: #374151; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+        .tt-glassOptional { color: #9ca3af; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+        .tt-glassChips { display: flex; gap: 8px; margin-bottom: 10px; }
+        .tt-glassChip {
+          flex: 1; padding: 9px 0; font-size: 13px; font-weight: 700;
+          background: rgba(255,255,255,0.55); color: #4b5563;
+          border: 1px solid rgba(21,27,77,0.12); border-radius: 12px;
+          cursor: pointer; transition: all .18s;
+        }
+        .tt-glassChip:hover { background: #fff; transform: translateY(-1px); }
+        .tt-glassChip.active {
+          background: linear-gradient(145deg, #151b4d, #1f2870);
+          color: #f2c14e; border-color: #151b4d;
+          box-shadow: 0 6px 14px rgba(21,27,77,0.35);
+        }
+
+        .tt-glassStepper {
+          display: flex; align-items: center; justify-content: space-between;
+          background: rgba(255,255,255,0.55); border: 1px solid rgba(21,27,77,0.12);
+          border-radius: 14px; padding: 4px;
+        }
+        .tt-glassStepper button {
+          width: 40px; height: 40px; border-radius: 10px; border: none;
+          background: transparent; font-size: 22px; font-weight: 700; color: #151b4d;
+          cursor: pointer; transition: background .15s;
+        }
+        .tt-glassStepper button:hover { background: rgba(21,27,77,0.08); }
+        .tt-glassStepperValue { display: flex; align-items: baseline; gap: 4px; }
+        .tt-glassStepperValue span { font-size: 26px; font-weight: 900; color: #151b4d; }
+        .tt-glassStepperValue small { font-size: 12px; color: #6b7280; font-weight: 700; }
+
+        .tt-glassSelect {
+          width: 100%; padding: 12px 14px;
+          background: rgba(255,255,255,0.7); color: #1b1e2b;
+          border: 1px solid rgba(21,27,77,0.15); border-radius: 12px;
+          font-size: 14px; font-weight: 700; outline: none; cursor: pointer;
+          transition: border-color .15s, background .15s;
+        }
+        .tt-glassSelect:focus { border-color: #151b4d; background: #fff; }
+        .tt-glassHint { margin-top: 8px; font-size: 11px; color: #6b7280; font-style: italic; }
+
+        .tt-glassActions { display: flex; gap: 10px; margin-top: 20px; }
+        .tt-glassBtn {
+          flex: 1; padding: 12px 16px; border-radius: 12px; border: none;
+          font-weight: 800; font-size: 14px; cursor: pointer; transition: all .18s;
+          letter-spacing: .3px;
+        }
+        .tt-glassBtn.ghost {
+          background: rgba(255,255,255,0.55); color: #4b5563;
+          border: 1px solid rgba(21,27,77,0.12);
+        }
+        .tt-glassBtn.ghost:hover { background: #fff; color: #1b1e2b; }
+        .tt-glassBtn.primary {
+          background: linear-gradient(145deg, #151b4d, #1f2870);
+          color: #fff;
+          box-shadow: 0 8px 20px rgba(21,27,77,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .tt-glassBtn.primary:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(21,27,77,0.45); }
+
+        /* MINIMIZED TIMER CSS */
         .tt-timerMini { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #1f2870; color: white; padding: 10px 30px; border-radius: 50px; display: flex; align-items: center; gap: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 9998; cursor: pointer; border: 2px solid #f0b429; transition: transform 0.2s; }
         .tt-timerMini:active { transform: translateX(-50%) scale(0.95); }
         .tt-timerMini .tt-tmIcon { font-size: 20px; }
         .tt-timerMini .tt-tmSubj { font-size: 16px; font-weight: 600; color: #fcd34d; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tt-tmBigSolid { background: #ea580c; color: #ffffff; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; font-family: monospace; letter-spacing: 1px; margin-left: 10px; }
+        .tt-tmBigSolid { background: #ea580c; color: #ffffff; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; font-family: monospace; letter-spacing: 1px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); margin-left: 10px; }
         
+        /* FULL TIMER MODAL CSS */
         .tt-timerModal { position: fixed; bottom: 30px; right: 30px; width: 380px; background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 25px; border: 2px solid #1f2870; z-index: 9998; display: flex; flex-direction: column; gap: 15px; transition: 0.3s; }
         .tt-timerModal.done { border-color: #22c55e; box-shadow: 0 10px 40px rgba(34,197,94,0.2); }
         .tt-timerModal.warn { border-color: #ef4444; box-shadow: 0 10px 40px rgba(239,68,68,0.2); }
