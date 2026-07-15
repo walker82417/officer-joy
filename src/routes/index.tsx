@@ -1490,7 +1490,7 @@ function StudyTimetable({ user }: { user: User }) {
 
                       <div className="tt-statList">
 
-                        <div>Hours: <b>{(doneToday.reduce((a, b) => a + b.durMin, 0) / 60).toFixed(1)}h</b></div>
+                        <div>Studied: <b>{(liveProgress.studied / 60).toFixed(1)}h</b> / {(liveProgress.allocated / 60).toFixed(1)}h</div>
 
                         <div>Completed: <b>{doneToday.length}</b></div>
 
