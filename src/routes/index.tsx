@@ -710,51 +710,57 @@ function StudyTimetable({ user }: { user: User }) {
 
   
 
+  // Live gradual progress: total allocated minutes vs. actual studied minutes
+  // (completed sessions + elapsed portion of the currently running/paused session).
+  const liveProgress = useMemo(() => {
+    let allocated = 0;
+    let studied = 0;
+    ROWS.forEach((r) => {
+      if (!isFocusRow(r)) return;
+      const st = sessions[r.id];
+      const alloc = st?.durationAllocated ?? r.dur;
+      allocated += alloc;
+      if (st?.status === "completed") {
+        studied += alloc;
+      } else if (st && (st.status === "running" || st.status === "paused")) {
+        const elapsedSec = Math.max(0, alloc * 60 - Math.max(0, st.remaining));
+        studied += elapsedSec / 60;
+      }
+    });
+    return { allocated, studied, pct: allocated ? Math.min(1, studied / allocated) : 0 };
+    // nowTick keeps this recomputing every second while a session runs
+  }, [sessions, nowTick]);
+
   useEffect(() => {
-
     const cvs = ringRef.current;
-
     if (!cvs) return;
-
     const ctx = cvs.getContext("2d");
-
     if (!ctx) return;
-
     const dpr = window.devicePixelRatio || 1;
-
     const size = 84;
-
     cvs.width = size * dpr; cvs.height = size * dpr;
-
     cvs.style.width = size + "px"; cvs.style.height = size + "px";
-
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
-
-    const pct = totalFocus ? doneToday.length / totalFocus : 0;
-
+    const pct = liveProgress.pct;
     ctx.clearRect(0, 0, size, size);
-
     const cx = size / 2, cy = size / 2, r = 34, lw = 12;
-
-    ctx.lineWidth = lw; ctx.strokeStyle = "#e6e8f0";
-
+    ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.strokeStyle = "#e6e8f0";
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-
     if (pct > 0) {
-
-      ctx.strokeStyle = "#2a9d5c"; ctx.beginPath();
-
-      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct); ctx.stroke();
-
+      const grad = ctx.createLinearGradient(0, 0, size, size);
+      grad.addColorStop(0, "#f2c14e");
+      grad.addColorStop(0.5, "#2b6fd6");
+      grad.addColorStop(1, "#2a9d5c");
+      ctx.strokeStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+      ctx.stroke();
     }
-
     ctx.fillStyle = "#1f2870"; ctx.font = "700 16px Oswald, sans-serif";
-
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-
     ctx.fillText(Math.round(pct * 100) + "%", cx, cy);
-
-  }, [totalFocus, doneToday.length, nowTick]);
+  }, [liveProgress]);
 
 
 
