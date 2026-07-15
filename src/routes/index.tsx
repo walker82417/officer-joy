@@ -946,9 +946,30 @@ function StudyTimetable({ user }: { user: User }) {
 
 
 
-    setSessions(nextSessions);
+    // Silently log this extension to Firebase for the email engine.
+    const deductedFrom =
+      targetDeductId !== 'none'
+        ? ROWS.find((r) => r.id === targetDeductId)?.act || String(targetDeductId)
+        : null;
+    const extensionEntry = {
+      date: todayKey(),
+      rowId: id,
+      activity: ROWS.find((r) => r.id === id)?.act || String(id),
+      minutes,
+      deductedFromRowId: targetDeductId === 'none' ? null : targetDeductId,
+      deductedFrom,
+      reopened,
+      ts: Date.now(),
+    };
 
-    updateToday({ sessions: nextSessions, timeShift: newShift, completedLog: newLog, checklist: newChecklist });
+    setSessions(nextSessions);
+    updateToday({
+      sessions: nextSessions,
+      timeShift: newShift,
+      completedLog: newLog,
+      checklist: newChecklist,
+      extensionLog: [...extensionLog, extensionEntry],
+    });
 
   };
 
