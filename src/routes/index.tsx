@@ -443,6 +443,7 @@ function StudyTimetable({ user }: { user: User }) {
   const [heatmapLog, setHeatmapLog] = useState<Record<string, number>>({});
 
   const [completedLog, setCompletedLog] = useState<CompletedLog[]>([]);
+  const [extensionLog, setExtensionLog] = useState<Array<{ date: string; rowId: number; activity: string; minutes: number; deductedFromRowId: number | null; deductedFrom: string | null; reopened: boolean; ts: number }>>([]);
 
   const [timeShift, setTimeShift] = useState(0);
 
@@ -513,7 +514,7 @@ function StudyTimetable({ user }: { user: User }) {
         if (data.pending) setPending(data.pending);
 
         if (data.completedLog) setCompletedLog(data.completedLog);
-
+        if (data.extensionLog) setExtensionLog(data.extensionLog);
         if (data.timeShift !== undefined) setTimeShift(data.timeShift);
 
       } else {
@@ -710,51 +711,57 @@ function StudyTimetable({ user }: { user: User }) {
 
   
 
+  // Live gradual progress: total allocated minutes vs. actual studied minutes
+  // (completed sessions + elapsed portion of the currently running/paused session).
+  const liveProgress = useMemo(() => {
+    let allocated = 0;
+    let studied = 0;
+    ROWS.forEach((r) => {
+      if (!isFocusRow(r)) return;
+      const st = sessions[r.id];
+      const alloc = st?.durationAllocated ?? r.dur;
+      allocated += alloc;
+      if (st?.status === "completed") {
+        studied += alloc;
+      } else if (st && (st.status === "running" || st.status === "paused")) {
+        const elapsedSec = Math.max(0, alloc * 60 - Math.max(0, st.remaining));
+        studied += elapsedSec / 60;
+      }
+    });
+    return { allocated, studied, pct: allocated ? Math.min(1, studied / allocated) : 0 };
+    // nowTick keeps this recomputing every second while a session runs
+  }, [sessions, nowTick]);
+
   useEffect(() => {
-
     const cvs = ringRef.current;
-
     if (!cvs) return;
-
     const ctx = cvs.getContext("2d");
-
     if (!ctx) return;
-
     const dpr = window.devicePixelRatio || 1;
-
     const size = 84;
-
     cvs.width = size * dpr; cvs.height = size * dpr;
-
     cvs.style.width = size + "px"; cvs.style.height = size + "px";
-
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
-
-    const pct = totalFocus ? doneToday.length / totalFocus : 0;
-
+    const pct = liveProgress.pct;
     ctx.clearRect(0, 0, size, size);
-
     const cx = size / 2, cy = size / 2, r = 34, lw = 12;
-
-    ctx.lineWidth = lw; ctx.strokeStyle = "#e6e8f0";
-
+    ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.strokeStyle = "#e6e8f0";
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
-
     if (pct > 0) {
-
-      ctx.strokeStyle = "#2a9d5c"; ctx.beginPath();
-
-      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct); ctx.stroke();
-
+      const grad = ctx.createLinearGradient(0, 0, size, size);
+      grad.addColorStop(0, "#f2c14e");
+      grad.addColorStop(0.5, "#2b6fd6");
+      grad.addColorStop(1, "#2a9d5c");
+      ctx.strokeStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
+      ctx.stroke();
     }
-
     ctx.fillStyle = "#1f2870"; ctx.font = "700 16px Oswald, sans-serif";
-
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
-
     ctx.fillText(Math.round(pct * 100) + "%", cx, cy);
-
-  }, [totalFocus, doneToday.length, nowTick]);
+  }, [liveProgress]);
 
 
 
@@ -814,7 +821,7 @@ function StudyTimetable({ user }: { user: User }) {
 
     const remaining = Math.round((st.endTs - Date.now()) / 1000);
 
-    const nextSessions = { ...sessions, [id]: { ...st, status: "paused", remaining, endTs: null } };
+    const nextSessions = { ...sessions, [id]: { ...st, status: "paused" as const, remaining, endTs: null } };
 
     
 
@@ -894,7 +901,7 @@ function StudyTimetable({ user }: { user: User }) {
 
 
 
-    nextSessions[id] = { ...st, status, remaining, endTs, durationAllocated: oldAllocated + minutes, warned: false };
+    nextSessions[id] = { ...st, status: status as SessionStatus, remaining, endTs, durationAllocated: oldAllocated + minutes, warned: false };
 
     let newShift = timeShift;
 
@@ -940,9 +947,30 @@ function StudyTimetable({ user }: { user: User }) {
 
 
 
-    setSessions(nextSessions);
+    // Silently log this extension to Firebase for the email engine.
+    const deductedFrom =
+      targetDeductId !== 'none'
+        ? ROWS.find((r) => r.id === targetDeductId)?.act || String(targetDeductId)
+        : null;
+    const extensionEntry = {
+      date: todayKey(),
+      rowId: id,
+      activity: ROWS.find((r) => r.id === id)?.act || String(id),
+      minutes,
+      deductedFromRowId: targetDeductId === 'none' ? null : targetDeductId,
+      deductedFrom,
+      reopened,
+      ts: Date.now(),
+    };
 
-    updateToday({ sessions: nextSessions, timeShift: newShift, completedLog: newLog, checklist: newChecklist });
+    setSessions(nextSessions);
+    updateToday({
+      sessions: nextSessions,
+      timeShift: newShift,
+      completedLog: newLog,
+      checklist: newChecklist,
+      extensionLog: [...extensionLog, extensionEntry],
+    });
 
   };
 
@@ -1462,7 +1490,7 @@ function StudyTimetable({ user }: { user: User }) {
 
                       <div className="tt-statList">
 
-                        <div>Hours: <b>{(doneToday.reduce((a, b) => a + b.durMin, 0) / 60).toFixed(1)}h</b></div>
+                        <div>Studied: <b>{(liveProgress.studied / 60).toFixed(1)}h</b> / {(liveProgress.allocated / 60).toFixed(1)}h</div>
 
                         <div>Completed: <b>{doneToday.length}</b></div>
 
@@ -1582,65 +1610,61 @@ function StudyTimetable({ user }: { user: User }) {
 
 
 
-      {/* EXTENSION MODAL (Overlay Form) */}
-
-      {extendModal && (
-
-        <div className="tt-modalOverlay">
-
-          <div className="tt-modalBox">
-
-            <h3>Extend Session: {ROWS.find(r => r.id === extendModal.id)?.act}</h3>
-
-            <div style={{ marginBottom: "20px" }}>
-
-              <label>Minutes to Add:</label>
-
-              <div className="tt-extBtnGroup">
-
-                {[15, 30, 45, 60].map(m => (
-
-                  <button key={m} className={extendMins === m ? "active" : ""} onClick={() => setExtendMins(m)}>+{m}</button>
-
-                ))}
-
+      {/* EXTENSION MODAL — glass-morphism */}
+      {extendModal && (() => {
+        const row = ROWS.find(r => r.id === extendModal.id);
+        const trades = ROWS.filter(r => isFocusRow(r) && r.id !== extendModal.id && sessions[r.id]?.status !== "completed" && sessions[r.id]?.remaining >= extendMins * 60);
+        return (
+          <div className="tt-glassOverlay" onClick={() => setExtendModal(null)}>
+            <div className="tt-glassBox" onClick={(e) => e.stopPropagation()}>
+              <div className="tt-glassHead">
+                <div className="tt-glassIcon">{row?.icon || "⏱"}</div>
+                <div>
+                  <div className="tt-glassEyebrow">Extend Session</div>
+                  <div className="tt-glassTitle">{row?.act}</div>
+                </div>
+                <button className="tt-glassClose" onClick={() => setExtendModal(null)} aria-label="Close">×</button>
               </div>
 
-              <input type="number" value={extendMins} onChange={(e) => setExtendMins(Math.max(1, Number(e.target.value)))} min="1" />
+              <div className="tt-glassSection">
+                <div className="tt-glassLabel">Add extra minutes</div>
+                <div className="tt-glassChips">
+                  {[15, 30, 45, 60].map(m => (
+                    <button key={m} className={`tt-glassChip ${extendMins === m ? "active" : ""}`} onClick={() => setExtendMins(m)}>+{m}m</button>
+                  ))}
+                </div>
+                <div className="tt-glassStepper">
+                  <button onClick={() => setExtendMins(Math.max(1, extendMins - 5))} aria-label="Decrease">−</button>
+                  <div className="tt-glassStepperValue"><span>{extendMins}</span><small>min</small></div>
+                  <button onClick={() => setExtendMins(extendMins + 5)} aria-label="Increase">+</button>
+                </div>
+              </div>
 
+              <div className="tt-glassSection">
+                <div className="tt-glassLabel">Trade time from another session <span className="tt-glassOptional">(optional)</span></div>
+                <select className="tt-glassSelect" value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}>
+                  <option value="none">— Add on top (no trade) —</option>
+                  {trades.map(r => (
+                    <option key={r.id} value={r.id}>{r.icon} {r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)</option>
+                  ))}
+                </select>
+                <div className="tt-glassHint">
+                  {deductId === 'none'
+                    ? "This will push your schedule forward by " + extendMins + " min."
+                    : "Time will be traded silently — logged for the mission report."}
+                </div>
+              </div>
+
+              <div className="tt-glassActions">
+                <button className="tt-glassBtn ghost" onClick={() => setExtendModal(null)}>Cancel</button>
+                <button className="tt-glassBtn primary" onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }}>
+                  Confirm +{extendMins}m
+                </button>
+              </div>
             </div>
-
-            <div style={{ marginBottom: "20px" }}>
-
-              <label>Deduct time from (Optional Trade):</label>
-
-              <select value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}>
-
-                <option value="none">-- Do not deduct --</option>
-
-                {ROWS.filter(r => isFocusRow(r) && r.id !== extendModal.id && sessions[r.id]?.status !== "completed" && sessions[r.id]?.remaining >= extendMins * 60).map(r => (
-
-                  <option key={r.id} value={r.id}>{r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)</option>
-
-                ))}
-
-              </select>
-
-            </div>
-
-            <div className="tt-modalActions">
-
-              <button onClick={() => setExtendModal(null)} style={{ background: "#f3f4f6", color: "#374151" }}>Cancel</button>
-
-              <button onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }} style={{ background: "#1f2870", color: "#ffffff" }}>Confirm Extension</button>
-
-            </div>
-
           </div>
-
-        </div>
-
-      )}
+        );
+      })()}
 
 
 
@@ -1793,9 +1817,106 @@ function StudyTimetable({ user }: { user: User }) {
         .tt-tmCloseBtn:hover { background: #d1d5db; color: #111; }
 
         .tt-tmHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; }
-
         .tt-tmHead > div { display: flex; align-items: center; gap: 10px; }
 
+        /* ===== GLASS EXTENSION MODAL ===== */
+        @keyframes ttGlassIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes ttFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .tt-glassOverlay {
+          position: fixed; inset: 0; z-index: 9999;
+          display: flex; justify-content: center; align-items: center; padding: 16px;
+          background: radial-gradient(ellipse at center, rgba(21,27,77,0.55), rgba(0,0,0,0.75));
+          backdrop-filter: blur(14px) saturate(140%);
+          animation: ttFadeIn .2s ease-out;
+        }
+        .tt-glassBox {
+          width: 100%; max-width: 440px;
+          background: linear-gradient(160deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65));
+          backdrop-filter: blur(24px) saturate(160%);
+          border: 1px solid rgba(255,255,255,0.6);
+          border-radius: 22px;
+          padding: 22px 24px 20px;
+          box-shadow: 0 24px 60px rgba(15,20,50,0.35), inset 0 1px 0 rgba(255,255,255,0.7);
+          color: #1b1e2b; font-family: var(--tt-font-body);
+          animation: ttGlassIn .28s cubic-bezier(.2,.9,.3,1.2);
+        }
+        .tt-glassHead { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .tt-glassIcon {
+          width: 44px; height: 44px; border-radius: 14px; flex: 0 0 auto;
+          display: flex; align-items: center; justify-content: center; font-size: 22px;
+          background: linear-gradient(145deg, #f2c14e, #e8862e);
+          box-shadow: 0 6px 14px rgba(232,134,46,0.35), inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+        .tt-glassEyebrow { font-size: 10px; font-weight: 800; letter-spacing: 1.2px; color: #6b7280; text-transform: uppercase; }
+        .tt-glassTitle { font-family: var(--tt-font-display); font-size: 18px; font-weight: 800; color: #151b4d; line-height: 1.15; max-width: 280px; }
+        .tt-glassClose {
+          margin-left: auto; width: 32px; height: 32px; border-radius: 50%;
+          border: 1px solid rgba(21,27,77,0.15); background: rgba(255,255,255,0.6);
+          font-size: 20px; line-height: 1; color: #4b5563; cursor: pointer;
+          transition: transform .15s, background .15s;
+        }
+        .tt-glassClose:hover { background: #fff; transform: rotate(90deg); }
+
+        .tt-glassSection { margin-bottom: 16px; }
+        .tt-glassLabel { font-size: 12px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+        .tt-glassOptional { color: #9ca3af; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+        .tt-glassChips { display: flex; gap: 8px; margin-bottom: 10px; }
+        .tt-glassChip {
+          flex: 1; padding: 9px 0; font-size: 13px; font-weight: 700;
+          background: rgba(255,255,255,0.55); color: #4b5563;
+          border: 1px solid rgba(21,27,77,0.12); border-radius: 12px;
+          cursor: pointer; transition: all .18s;
+        }
+        .tt-glassChip:hover { background: #fff; transform: translateY(-1px); }
+        .tt-glassChip.active {
+          background: linear-gradient(145deg, #151b4d, #1f2870);
+          color: #f2c14e; border-color: #151b4d;
+          box-shadow: 0 6px 14px rgba(21,27,77,0.35);
+        }
+
+        .tt-glassStepper {
+          display: flex; align-items: center; justify-content: space-between;
+          background: rgba(255,255,255,0.55); border: 1px solid rgba(21,27,77,0.12);
+          border-radius: 14px; padding: 4px;
+        }
+        .tt-glassStepper button {
+          width: 40px; height: 40px; border-radius: 10px; border: none;
+          background: transparent; font-size: 22px; font-weight: 700; color: #151b4d;
+          cursor: pointer; transition: background .15s;
+        }
+        .tt-glassStepper button:hover { background: rgba(21,27,77,0.08); }
+        .tt-glassStepperValue { display: flex; align-items: baseline; gap: 4px; font-family: var(--tt-font-display); }
+        .tt-glassStepperValue span { font-size: 26px; font-weight: 800; color: #151b4d; }
+        .tt-glassStepperValue small { font-size: 11px; color: #6b7280; font-weight: 700; }
+
+        .tt-glassSelect {
+          width: 100%; padding: 12px 14px;
+          background: rgba(255,255,255,0.7); color: #1b1e2b;
+          border: 1px solid rgba(21,27,77,0.15); border-radius: 12px;
+          font-size: 14px; font-weight: 600; outline: none; cursor: pointer;
+          transition: border-color .15s, background .15s;
+        }
+        .tt-glassSelect:focus { border-color: #151b4d; background: #fff; }
+        .tt-glassHint { margin-top: 8px; font-size: 11px; color: #6b7280; font-style: italic; }
+
+        .tt-glassActions { display: flex; gap: 10px; margin-top: 20px; }
+        .tt-glassBtn {
+          flex: 1; padding: 12px 16px; border-radius: 12px; border: none;
+          font-weight: 800; font-size: 14px; cursor: pointer; transition: all .18s;
+          font-family: var(--tt-font-body); letter-spacing: .3px;
+        }
+        .tt-glassBtn.ghost {
+          background: rgba(255,255,255,0.55); color: #4b5563;
+          border: 1px solid rgba(21,27,77,0.12);
+        }
+        .tt-glassBtn.ghost:hover { background: #fff; color: #1b1e2b; }
+        .tt-glassBtn.primary {
+          background: linear-gradient(145deg, #151b4d, #1f2870);
+          color: #f2c14e;
+          box-shadow: 0 8px 20px rgba(21,27,77,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .tt-glassBtn.primary:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(21,27,77,0.45); }
       `}</style>
 
     </div>
