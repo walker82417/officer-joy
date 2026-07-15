@@ -820,7 +820,7 @@ function StudyTimetable({ user }: { user: User }) {
 
     const remaining = Math.round((st.endTs - Date.now()) / 1000);
 
-    const nextSessions = { ...sessions, [id]: { ...st, status: "paused", remaining, endTs: null } };
+    const nextSessions = { ...sessions, [id]: { ...st, status: "paused" as const, remaining, endTs: null } };
 
     
 
