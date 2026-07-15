@@ -443,6 +443,7 @@ function StudyTimetable({ user }: { user: User }) {
   const [heatmapLog, setHeatmapLog] = useState<Record<string, number>>({});
 
   const [completedLog, setCompletedLog] = useState<CompletedLog[]>([]);
+  const [extensionLog, setExtensionLog] = useState<Array<{ date: string; rowId: number; activity: string; minutes: number; deductedFromRowId: number | null; deductedFrom: string | null; reopened: boolean; ts: number }>>([]);
 
   const [timeShift, setTimeShift] = useState(0);
 
