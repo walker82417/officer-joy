@@ -514,7 +514,7 @@ function StudyTimetable({ user }: { user: User }) {
         if (data.pending) setPending(data.pending);
 
         if (data.completedLog) setCompletedLog(data.completedLog);
-
+        if (data.extensionLog) setExtensionLog(data.extensionLog);
         if (data.timeShift !== undefined) setTimeShift(data.timeShift);
 
       } else {
