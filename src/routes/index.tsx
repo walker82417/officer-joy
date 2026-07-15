@@ -357,8 +357,8 @@ function StudyTimetable({ user }: { user: User }) {
     }
     return s;
   }, [heatmapLog]);
-  
-  // LIVE GRADUAL PROGRESS RING
+
+  // LIVE GRADUAL PROGRESS LOGIC
   const liveProgress = useMemo(() => {
     let allocated = 0;
     let studied = 0;
@@ -454,7 +454,7 @@ function StudyTimetable({ user }: { user: User }) {
       newLog = [...completedLog, { date: todayKey(), rowId: id, cat: row.cat, durMin: finalDur, ts: Date.now() }];
     }
     
-    // SMART CHECKLIST: Only triggers when the ✓ Complete button is clicked.
+    // SMART CHECKLIST TRIGGER
     const checklistItem = ROW_CHECKLIST_MAP[id];
     const newChecklist = checklistItem ? { ...checklist, [checklistItem]: true } : checklist;
 
@@ -479,7 +479,6 @@ function StudyTimetable({ user }: { user: User }) {
     nextSessions[id] = { ...st, status: status as SessionStatus, remaining, endTs, durationAllocated: oldAllocated + minutes, warned: false };
     let newShift = timeShift;
 
-    // Smart Checklist condition: Deductions do NOT auto-check the deducted item.
     if (targetDeductId !== 'none' && nextSessions[targetDeductId]) {
       const dst = nextSessions[targetDeductId];
       nextSessions[targetDeductId] = { ...dst, remaining: Math.max(0, dst.remaining - minutes * 60) };
@@ -500,16 +499,27 @@ function StudyTimetable({ user }: { user: User }) {
        }
     }
 
-    // EXTENSION TRACKING FOR EMAIL SCRIPT
+    // EXTENSION TRACKING LOGIC
     const deductedFrom = targetDeductId !== 'none' ? ROWS.find((r) => r.id === targetDeductId)?.act || String(targetDeductId) : null;
     const extensionEntry = {
-      date: todayKey(), rowId: id, activity: ROWS.find((r) => r.id === id)?.act || String(id),
-      minutes, deductedFromRowId: targetDeductId === 'none' ? null : targetDeductId,
-      deductedFrom, reopened, ts: Date.now(),
+      date: todayKey(),
+      rowId: id,
+      activity: ROWS.find((r) => r.id === id)?.act || String(id),
+      minutes,
+      deductedFromRowId: targetDeductId === 'none' ? null : targetDeductId,
+      deductedFrom,
+      reopened,
+      ts: Date.now(),
     };
 
     setSessions(nextSessions);
-    updateToday({ sessions: nextSessions, timeShift: newShift, completedLog: newLog, checklist: newChecklist, extensionLog: [...extensionLog, extensionEntry] });
+    updateToday({
+      sessions: nextSessions,
+      timeShift: newShift,
+      completedLog: newLog,
+      checklist: newChecklist,
+      extensionLog: [...extensionLog, extensionEntry],
+    });
   };
 
   const saveExamDate = (key: ExamKey, val: string) => {
@@ -829,7 +839,7 @@ function StudyTimetable({ user }: { user: User }) {
         </div>
       </div>
 
-      {/* EXTENSION MODAL — glass-morphism classes replaced with standard UI */}
+      {/* EXTENSION MODAL — glass-morphism */}
       {extendModal && (() => {
         const row = ROWS.find(r => r.id === extendModal.id);
         const trades = ROWS.filter(r => isFocusRow(r) && r.id !== extendModal.id && sessions[r.id]?.status !== "completed" && sessions[r.id]?.remaining >= extendMins * 60);
@@ -1070,56 +1080,104 @@ function StudyTimetable({ user }: { user: User }) {
         .tt-tmHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; }
         .tt-tmHead > div { display: flex; align-items: center; gap: 10px; }
 
-        /* SAFE EXTENSION MODAL CSS (Standard UI, no glass) */
-        .tt-glassOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 15px; }
-        .tt-glassBox { background: white; width: 100%; max-width: 440px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); padding: 24px; font-family: 'Inter', sans-serif; }
-        .tt-glassHead { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #e2e8f0; }
-        .tt-glassIcon { font-size: 24px; background: #f1f5f9; width: 48px; height: 48px; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; }
-        .tt-glassEyebrow { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-        .tt-glassTitle { font-size: 18px; font-weight: 800; color: #1f2870; }
-        .tt-glassClose { margin-left: auto; background: none; border: none; font-size: 24px; color: #94a3b8; cursor: pointer; transition: 0.2s; }
-        .tt-glassClose:hover { color: #1e293b; }
-        
-        .tt-glassSection { margin-bottom: 20px; }
-        .tt-glassLabel { font-size: 13px; font-weight: 700; color: #334155; margin-bottom: 8px; }
-        .tt-glassOptional { color: #94a3b8; font-weight: 400; }
-        
-        .tt-glassChips { display: flex; gap: 8px; margin-bottom: 10px; }
-        .tt-glassChip { flex: 1; padding: 8px 0; border: 2px solid #e2e8f0; background: #fff; color: #475569; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 14px; transition: 0.2s; }
-        .tt-glassChip.active { border-color: #1f2870; background: #1f2870; color: #fff; }
-        
-        .tt-glassStepper { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 4px; }
-        .tt-glassStepper button { width: 40px; height: 40px; border: none; background: #e2e8f0; border-radius: 6px; font-size: 20px; font-weight: bold; color: #334155; cursor: pointer; }
-        .tt-glassStepper button:hover { background: #cbd5e1; }
-        .tt-glassStepperValue { font-size: 24px; font-weight: 800; color: #1f2870; }
-        .tt-glassStepperValue small { font-size: 12px; color: #64748b; font-weight: 600; margin-left: 2px; }
-        
-        .tt-glassSelect { width: 100%; padding: 12px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 14px; font-weight: 600; color: #334155; background: #fff; outline: none; cursor: pointer; }
-        .tt-glassSelect:focus { border-color: #3b82f6; }
-        .tt-glassHint { font-size: 12px; color: #64748b; margin-top: 6px; font-style: italic; }
-        
-        .tt-glassActions { display: flex; gap: 10px; margin-top: 10px; }
-        .tt-glassBtn { flex: 1; padding: 12px; font-size: 14px; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        .tt-glassBtn.ghost { background: #f1f5f9; color: #475569; }
-        .tt-glassBtn.ghost:hover { background: #e2e8f0; }
-        .tt-glassBtn.primary { background: #22c55e; color: #fff; box-shadow: 0 4px 10px rgba(34, 197, 94, 0.2); }
-        .tt-glassBtn.primary:hover { background: #16a34a; transform: translateY(-1px); }
+        /* ===== GLASS EXTENSION MODAL ===== */
+        @keyframes ttGlassIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes ttFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .tt-glassOverlay {
+          position: fixed; inset: 0; z-index: 9999;
+          display: flex; justify-content: center; align-items: center; padding: 16px;
+          background: radial-gradient(ellipse at center, rgba(21,27,77,0.55), rgba(0,0,0,0.75));
+          backdrop-filter: blur(14px) saturate(140%);
+          animation: ttFadeIn .2s ease-out;
+        }
+        .tt-glassBox {
+          width: 100%; max-width: 440px;
+          background: linear-gradient(160deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65));
+          backdrop-filter: blur(24px) saturate(160%);
+          border: 1px solid rgba(255,255,255,0.6);
+          border-radius: 22px;
+          padding: 22px 24px 20px;
+          box-shadow: 0 24px 60px rgba(15,20,50,0.35), inset 0 1px 0 rgba(255,255,255,0.7);
+          color: #1b1e2b; font-family: var(--tt-font-body);
+          animation: ttGlassIn .28s cubic-bezier(.2,.9,.3,1.2);
+        }
+        .tt-glassHead { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+        .tt-glassIcon {
+          width: 44px; height: 44px; border-radius: 14px; flex: 0 0 auto;
+          display: flex; align-items: center; justify-content: center; font-size: 22px;
+          background: linear-gradient(145deg, #f2c14e, #e8862e);
+          box-shadow: 0 6px 14px rgba(232,134,46,0.35), inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+        .tt-glassEyebrow { font-size: 10px; font-weight: 800; letter-spacing: 1.2px; color: #6b7280; text-transform: uppercase; }
+        .tt-glassTitle { font-family: var(--tt-font-display); font-size: 18px; font-weight: 800; color: #151b4d; line-height: 1.15; max-width: 280px; }
+        .tt-glassClose {
+          margin-left: auto; width: 32px; height: 32px; border-radius: 50%;
+          border: 1px solid rgba(21,27,77,0.15); background: rgba(255,255,255,0.6);
+          font-size: 20px; line-height: 1; color: #4b5563; cursor: pointer;
+          transition: transform .15s, background .15s;
+        }
+        .tt-glassClose:hover { background: #fff; transform: rotate(90deg); }
 
-        /* FULL TIMER MODAL CSS */
-        .tt-timerModal { position: fixed; bottom: 30px; right: 30px; width: 380px; background: #fff; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 25px; border: 2px solid #1f2870; z-index: 9998; display: flex; flex-direction: column; gap: 15px; transition: 0.3s; }
-        .tt-timerModal.done { border-color: #22c55e; box-shadow: 0 10px 40px rgba(34,197,94,0.2); }
-        .tt-timerModal.warn { border-color: #ef4444; box-shadow: 0 10px 40px rgba(239,68,68,0.2); }
-        .tt-tmHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; }
-        .tt-tmHead > div { display: flex; align-items: center; gap: 10px; }
-        .tt-tmIcon { font-size: 24px; }
-        .tt-tmTitle { font-weight: 900; font-size: 16px; color: #1f2870; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
-        .tt-tmBig { font-size: 64px; font-family: monospace; font-weight: 900; text-align: center; color: #111; line-height: 1; letter-spacing: -2px; margin: 10px 0; }
-        .tt-tmHint { font-size: 12px; text-align: center; color: #64748b; background: #f8fafc; padding: 8px; border-radius: 6px; }
-        .tt-tmBtns { display: flex; gap: 10px; margin-top: 5px; }
-        .tt-tmBtns button { flex: 1; padding: 12px 0; border: none; border-radius: 8px; font-weight: bold; font-size: 14px; cursor: pointer; transition: 0.2s; }
-        .tt-tmBtns button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .tt-tmCloseBtn { background: #e5e7eb; color: #4b5563; border: none; padding: 6px 12px; border-radius: 12px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        .tt-tmCloseBtn:hover { background: #d1d5db; color: #111; }
+        .tt-glassSection { margin-bottom: 16px; }
+        .tt-glassLabel { font-size: 12px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+        .tt-glassOptional { color: #9ca3af; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+        .tt-glassChips { display: flex; gap: 8px; margin-bottom: 10px; }
+        .tt-glassChip {
+          flex: 1; padding: 9px 0; font-size: 13px; font-weight: 700;
+          background: rgba(255,255,255,0.55); color: #4b5563;
+          border: 1px solid rgba(21,27,77,0.12); border-radius: 12px;
+          cursor: pointer; transition: all .18s;
+        }
+        .tt-glassChip:hover { background: #fff; transform: translateY(-1px); }
+        .tt-glassChip.active {
+          background: linear-gradient(145deg, #151b4d, #1f2870);
+          color: #f2c14e; border-color: #151b4d;
+          box-shadow: 0 6px 14px rgba(21,27,77,0.35);
+        }
+
+        .tt-glassStepper {
+          display: flex; align-items: center; justify-content: space-between;
+          background: rgba(255,255,255,0.55); border: 1px solid rgba(21,27,77,0.12);
+          border-radius: 14px; padding: 4px;
+        }
+        .tt-glassStepper button {
+          width: 40px; height: 40px; border-radius: 10px; border: none;
+          background: transparent; font-size: 22px; font-weight: 700; color: #151b4d;
+          cursor: pointer; transition: background .15s;
+        }
+        .tt-glassStepper button:hover { background: rgba(21,27,77,0.08); }
+        .tt-glassStepperValue { display: flex; align-items: baseline; gap: 4px; font-family: var(--tt-font-display); }
+        .tt-glassStepperValue span { font-size: 26px; font-weight: 800; color: #151b4d; }
+        .tt-glassStepperValue small { font-size: 11px; color: #6b7280; font-weight: 700; }
+
+        .tt-glassSelect {
+          width: 100%; padding: 12px 14px;
+          background: rgba(255,255,255,0.7); color: #1b1e2b;
+          border: 1px solid rgba(21,27,77,0.15); border-radius: 12px;
+          font-size: 14px; font-weight: 600; outline: none; cursor: pointer;
+          transition: border-color .15s, background .15s;
+        }
+        .tt-glassSelect:focus { border-color: #151b4d; background: #fff; }
+        .tt-glassHint { margin-top: 8px; font-size: 11px; color: #6b7280; font-style: italic; }
+
+        .tt-glassActions { display: flex; gap: 10px; margin-top: 20px; }
+        .tt-glassBtn {
+          flex: 1; padding: 12px 16px; border-radius: 12px; border: none;
+          font-weight: 800; font-size: 14px; cursor: pointer; transition: all .18s;
+          font-family: var(--tt-font-body); letter-spacing: .3px;
+        }
+        .tt-glassBtn.ghost {
+          background: rgba(255,255,255,0.55); color: #4b5563;
+          border: 1px solid rgba(21,27,77,0.12);
+        }
+        .tt-glassBtn.ghost:hover { background: #fff; color: #1b1e2b; }
+        .tt-glassBtn.primary {
+          background: linear-gradient(145deg, #151b4d, #1f2870);
+          color: #f2c14e;
+          box-shadow: 0 8px 20px rgba(21,27,77,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .tt-glassBtn.primary:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(21,27,77,0.45); }
       `}</style>
     </div>
   );
