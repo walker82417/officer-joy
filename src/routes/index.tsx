@@ -1610,65 +1610,61 @@ function StudyTimetable({ user }: { user: User }) {
 
 
 
-      {/* EXTENSION MODAL (Overlay Form) */}
-
-      {extendModal && (
-
-        <div className="tt-modalOverlay">
-
-          <div className="tt-modalBox">
-
-            <h3>Extend Session: {ROWS.find(r => r.id === extendModal.id)?.act}</h3>
-
-            <div style={{ marginBottom: "20px" }}>
-
-              <label>Minutes to Add:</label>
-
-              <div className="tt-extBtnGroup">
-
-                {[15, 30, 45, 60].map(m => (
-
-                  <button key={m} className={extendMins === m ? "active" : ""} onClick={() => setExtendMins(m)}>+{m}</button>
-
-                ))}
-
+      {/* EXTENSION MODAL — glass-morphism */}
+      {extendModal && (() => {
+        const row = ROWS.find(r => r.id === extendModal.id);
+        const trades = ROWS.filter(r => isFocusRow(r) && r.id !== extendModal.id && sessions[r.id]?.status !== "completed" && sessions[r.id]?.remaining >= extendMins * 60);
+        return (
+          <div className="tt-glassOverlay" onClick={() => setExtendModal(null)}>
+            <div className="tt-glassBox" onClick={(e) => e.stopPropagation()}>
+              <div className="tt-glassHead">
+                <div className="tt-glassIcon">{row?.icon || "⏱"}</div>
+                <div>
+                  <div className="tt-glassEyebrow">Extend Session</div>
+                  <div className="tt-glassTitle">{row?.act}</div>
+                </div>
+                <button className="tt-glassClose" onClick={() => setExtendModal(null)} aria-label="Close">×</button>
               </div>
 
-              <input type="number" value={extendMins} onChange={(e) => setExtendMins(Math.max(1, Number(e.target.value)))} min="1" />
+              <div className="tt-glassSection">
+                <div className="tt-glassLabel">Add extra minutes</div>
+                <div className="tt-glassChips">
+                  {[15, 30, 45, 60].map(m => (
+                    <button key={m} className={`tt-glassChip ${extendMins === m ? "active" : ""}`} onClick={() => setExtendMins(m)}>+{m}m</button>
+                  ))}
+                </div>
+                <div className="tt-glassStepper">
+                  <button onClick={() => setExtendMins(Math.max(1, extendMins - 5))} aria-label="Decrease">−</button>
+                  <div className="tt-glassStepperValue"><span>{extendMins}</span><small>min</small></div>
+                  <button onClick={() => setExtendMins(extendMins + 5)} aria-label="Increase">+</button>
+                </div>
+              </div>
 
+              <div className="tt-glassSection">
+                <div className="tt-glassLabel">Trade time from another session <span className="tt-glassOptional">(optional)</span></div>
+                <select className="tt-glassSelect" value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}>
+                  <option value="none">— Add on top (no trade) —</option>
+                  {trades.map(r => (
+                    <option key={r.id} value={r.id}>{r.icon} {r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)</option>
+                  ))}
+                </select>
+                <div className="tt-glassHint">
+                  {deductId === 'none'
+                    ? "This will push your schedule forward by " + extendMins + " min."
+                    : "Time will be traded silently — logged for the mission report."}
+                </div>
+              </div>
+
+              <div className="tt-glassActions">
+                <button className="tt-glassBtn ghost" onClick={() => setExtendModal(null)}>Cancel</button>
+                <button className="tt-glassBtn primary" onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }}>
+                  Confirm +{extendMins}m
+                </button>
+              </div>
             </div>
-
-            <div style={{ marginBottom: "20px" }}>
-
-              <label>Deduct time from (Optional Trade):</label>
-
-              <select value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}>
-
-                <option value="none">-- Do not deduct --</option>
-
-                {ROWS.filter(r => isFocusRow(r) && r.id !== extendModal.id && sessions[r.id]?.status !== "completed" && sessions[r.id]?.remaining >= extendMins * 60).map(r => (
-
-                  <option key={r.id} value={r.id}>{r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)</option>
-
-                ))}
-
-              </select>
-
-            </div>
-
-            <div className="tt-modalActions">
-
-              <button onClick={() => setExtendModal(null)} style={{ background: "#f3f4f6", color: "#374151" }}>Cancel</button>
-
-              <button onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }} style={{ background: "#1f2870", color: "#ffffff" }}>Confirm Extension</button>
-
-            </div>
-
           </div>
-
-        </div>
-
-      )}
+        );
+      })()}
 
 
 
