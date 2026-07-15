@@ -900,7 +900,7 @@ function StudyTimetable({ user }: { user: User }) {
 
 
 
-    nextSessions[id] = { ...st, status, remaining, endTs, durationAllocated: oldAllocated + minutes, warned: false };
+    nextSessions[id] = { ...st, status: status as SessionStatus, remaining, endTs, durationAllocated: oldAllocated + minutes, warned: false };
 
     let newShift = timeShift;
 
