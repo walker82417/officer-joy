@@ -4,15 +4,13 @@ import { doc, onSnapshot, setDoc } from "firebase/firestore";
 import { onAuthStateChanged, signInWithPopup, User, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { db, auth, googleProvider } from "../firebaseConfig";
 
+// === GOOGLE SHEETS SYNC CONFIG ===
+const WEB_APP_URL = "PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE";
+const SHARED_SECRET = "rohan-secure-2026";
+
 export const Route = createFileRoute("/")({
   component: AppWrapper,
 });
-
-/* =============================================================
-   BACKEND SYNC CONFIGURATION
-   ============================================================= */
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFbz6Gf4hcGZfDv0aXKS9wZVm9HobFagMVK6ieL2Y0Iy_NB0vTmztA06_0nmNb0hGl/exec"; 
-const SHARED_SECRET = "rohan-secure-2026";
 
 /* =============================================================
    DATA
@@ -169,25 +167,25 @@ function AppWrapper() {
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#1f2870', color: 'white', fontFamily: 'sans-serif' }}>
         <h1 style={{ fontSize: '48px', margin: '0 0 10px 0' }}>Officer Rohan's Timetable</h1>
         <p style={{ fontSize: '18px', opacity: 0.8, marginBottom: '30px' }}>Firebase Secured Architecture</p>
-        
+
         {/* EMAIL & PASSWORD LOGIN BOX */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '320px', marginBottom: '20px' }}>
-          <input 
-            type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} 
-            style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }} 
+          <input
+            type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)}
+            style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }}
           />
-          <input 
-            type="password" placeholder="Password (min 6 chars)" value={pass} onChange={e => setPass(e.target.value)} 
-            style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }} 
+          <input
+            type="password" placeholder="Password (min 6 chars)" value={pass} onChange={e => setPass(e.target.value)}
+            style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }}
           />
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              onClick={() => signInWithEmailAndPassword(auth, email, pass).catch(e => alert("LOGIN ERROR: " + e.message))} 
+            <button
+              onClick={() => signInWithEmailAndPassword(auth, email, pass).catch(e => alert("LOGIN ERROR: " + e.message))}
               style={{ flex: 1, padding: '12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
               Login
             </button>
-            <button 
-              onClick={() => createUserWithEmailAndPassword(auth, email, pass).catch(e => alert("SIGNUP ERROR: " + e.message))} 
+            <button
+              onClick={() => createUserWithEmailAndPassword(auth, email, pass).catch(e => alert("SIGNUP ERROR: " + e.message))}
               style={{ flex: 1, padding: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
               Sign Up
             </button>
@@ -197,12 +195,12 @@ function AppWrapper() {
         <div style={{ margin: '10px 0', opacity: 0.5, fontSize: '14px' }}>— OR —</div>
 
         {/* GOOGLE LOGIN FALLBACK */}
-        <button 
+        <button
           onClick={() => {
             signInWithPopup(auth, googleProvider).catch((error) => {
               alert("GOOGLE LOGIN ERROR: " + error.message);
             });
-          }} 
+          }}
           style={{ padding: '14px 32px', background: '#f0b429', color: '#111', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s', marginTop: '10px' }}>
           Verify with Google
         </button>
@@ -219,7 +217,7 @@ function AppWrapper() {
 function StudyTimetable({ user }: { user: User }) {
   const [mounted, setMounted] = useState(false);
   const [nowTick, setNowTick] = useState(0);
-  
+
   // State
   const [examDates, setExamDates] = useState(EXAMS_DEFAULT);
   const [sessions, setSessions] = useState<Record<number, SessionRec>>(initSessions);
@@ -229,14 +227,14 @@ function StudyTimetable({ user }: { user: User }) {
   const [completedLog, setCompletedLog] = useState<CompletedLog[]>([]);
   const [extensionLog, setExtensionLog] = useState<Array<{ date: string; rowId: number; activity: string; minutes: number; deductedFromRowId: number | null; deductedFrom: string | null; reopened: boolean; ts: number }>>([]);
   const [timeShift, setTimeShift] = useState(0);
-  
+
   // UI State
   const [editingExam, setEditingExam] = useState<ExamKey | null>(null);
   const [extendModal, setExtendModal] = useState<{ id: number } | null>(null);
   const [extendMins, setExtendMins] = useState<number>(15);
   const [deductId, setDeductId] = useState<number | 'none'>('none');
   const [timerMinimized, setTimerMinimized] = useState(false);
-  
+
   const ringRef = useRef<HTMLCanvasElement | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
 
@@ -244,25 +242,29 @@ function StudyTimetable({ user }: { user: User }) {
   const userRef = doc(db, "users", user.uid);
   const todayRef = doc(db, "users", user.uid, "daily", todayKey());
 
-  /* -- SHEET SYNC HELPER -- */
-  const postToSheet = async (payload: any, type: string) => {
+  /* -- GOOGLE SHEETS SYNC -- */
+  const postToSheet = useCallback(async (payload: any, type: string) => {
     try {
       await fetch(WEB_APP_URL, {
         method: 'POST',
-        mode: 'no-cors',
+        mode: 'no-cors', // Essential for Apps Script - response is opaque, don't try to read it
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           secret: SHARED_SECRET,
           type: type,
           date: todayKey(),
-          payload: payload
-        })
+          user: user.email,
+          payload: payload,
+        }),
       });
-    } catch (e) { console.error("Sheet sync failed", e); }
-  };
+    } catch (e) {
+      console.error("Sheet sync failed", e);
+    }
+  }, [user.email]);
 
   /* -- FIREBASE REAL-TIME SYNC -- */
   useEffect(() => {
+    // 1. Listen to Global User Data (Exams, Heatmap)
     const unsubUser = onSnapshot(userRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -271,6 +273,7 @@ function StudyTimetable({ user }: { user: User }) {
       }
     });
 
+    // 2. Listen to Today's Data (Sessions, Checklist, Timers)
     const unsubToday = onSnapshot(todayRef, (snap) => {
       if (snap.exists()) {
         const data = snap.data();
@@ -281,13 +284,16 @@ function StudyTimetable({ user }: { user: User }) {
         if (data.extensionLog) setExtensionLog(data.extensionLog);
         if (data.timeShift !== undefined) setTimeShift(data.timeShift);
       } else {
+        // Initialize daily document if it doesn't exist
         setDoc(todayRef, { sessions: initSessions(), checklist: initChecklist(), pending: [], completedLog: [], timeShift: 0 }, { merge: true });
       }
       setMounted(true);
     });
+
     return () => { unsubUser(); unsubToday(); };
   }, [user.uid]);
 
+  // Push updates to Firebase
   const updateToday = (updates: Partial<any>) => setDoc(todayRef, updates, { merge: true });
   const updateUserStats = (updates: Partial<any>) => setDoc(userRef, updates, { merge: true });
 
@@ -313,6 +319,7 @@ function StudyTimetable({ user }: { user: User }) {
   const playStartChime = useCallback(() => { playTone(523, 0.18, 0.12); setTimeout(() => playTone(659, 0.22, 0.12), 120); }, [playTone]);
   const playCompleteChime = useCallback(() => { playTone(659, 0.16, 0.12); setTimeout(() => playTone(880, 0.28, 0.12), 140); }, [playTone]);
 
+  /* -- 1-second tick for local timers -- */
   useEffect(() => {
     const id = window.setInterval(() => setNowTick((x) => x + 1), 1000);
     return () => window.clearInterval(id);
@@ -372,7 +379,9 @@ function StudyTimetable({ user }: { user: User }) {
     }
     return s;
   }, [heatmapLog]);
-  
+
+  // Live gradual progress: total allocated minutes vs. actual studied minutes
+  // (completed sessions + elapsed portion of the currently running/paused session).
   const liveProgress = useMemo(() => {
     let allocated = 0;
     let studied = 0;
@@ -389,6 +398,7 @@ function StudyTimetable({ user }: { user: User }) {
       }
     });
     return { allocated, studied, pct: allocated ? Math.min(1, studied / allocated) : 0 };
+    // nowTick keeps this recomputing every second while a session runs
   }, [sessions, nowTick]);
 
   useEffect(() => {
@@ -422,15 +432,15 @@ function StudyTimetable({ user }: { user: User }) {
     ctx.fillText(Math.round(pct * 100) + "%", cx, cy);
   }, [liveProgress]);
 
-
   /* =========================================================
-     ACTIONS (Pushing to Firebase & Sheet Sync)
+     ACTIONS (Pushing to Firebase)
      ========================================================= */
   const startSession = (id: number) => {
     const st = sessions[id];
     if (!st || st.status === "completed") return;
-    
+
     const nextSessions = { ...sessions };
+    // Pause any running session
     Object.keys(nextSessions).forEach(key => {
        if (nextSessions[Number(key)].status === 'running') {
          nextSessions[Number(key)].status = 'paused';
@@ -439,23 +449,25 @@ function StudyTimetable({ user }: { user: User }) {
     });
 
     nextSessions[id] = { ...st, status: "running", endTs: Date.now() + st.remaining * 1000, warned: false };
-    
+
     playStartChime();
     setSessions(nextSessions);
     updateToday({ sessions: nextSessions, pending: pending.filter((x) => x !== id) });
-    postToSheet({ row: ROWS.find(r => r.id === id), status: "running" }, "session_started");
+
+    // Sync to Google Sheets
+    const row = ROWS.find((r) => r.id === id);
+    if (row) postToSheet({ row: row.act, cat: row.cat }, "session_started");
   };
 
   const pauseSession = (id: number) => {
     const st = sessions[id];
     if (!st || st.status !== "running" || !st.endTs) return;
-    
+
     const remaining = Math.round((st.endTs - Date.now()) / 1000);
     const nextSessions = { ...sessions, [id]: { ...st, status: "paused" as const, remaining, endTs: null } };
-    
+
     setSessions(nextSessions);
     updateToday({ sessions: nextSessions });
-    postToSheet({ row: ROWS.find(r => r.id === id), status: "paused" }, "session_paused");
   };
 
   const completeSession = (id: number) => {
@@ -463,28 +475,25 @@ function StudyTimetable({ user }: { user: User }) {
     if (!row) return;
 
     const nextSessions = { ...sessions, [id]: { ...sessions[id], status: "completed", remaining: 0, endTs: null } as SessionRec };
-    const finalDur = sessions[id]?.durationAllocated ?? row.dur; 
-    
+    const finalDur = sessions[id]?.durationAllocated ?? row.dur;
+
+    // Check if already completed to prevent duplicates
     let newLog = completedLog;
     if (!completedLog.some((l) => l.rowId === id && l.date === todayKey())) {
       newLog = [...completedLog, { date: todayKey(), rowId: id, cat: row.cat, durMin: finalDur, ts: Date.now() }];
     }
-    
+
     const checklistItem = ROW_CHECKLIST_MAP[id];
     const newChecklist = checklistItem ? { ...checklist, [checklistItem]: true } : checklist;
 
     playCompleteChime();
     setSessions(nextSessions);
-
-    const nextHeatmapLog = { ...heatmapLog, [todayKey()]: (heatmapLog[todayKey()] || 0) + 1 };
-    setHeatmapLog(nextHeatmapLog);
-
     updateToday({ sessions: nextSessions, completedLog: newLog, checklist: newChecklist, pending: pending.filter((x) => x !== id) });
-    updateUserStats({ heatmapLog: nextHeatmapLog });
-    
-    // SYNC TO SHEET
-    postToSheet({ row: row, status: "completed", minutes: finalDur }, "session_completed");
-    
+    updateUserStats({ [`heatmapLog.${todayKey()}`]: (heatmapLog[todayKey()] || 0) + 1 });
+
+    // Sync this event to Google Sheets
+    postToSheet({ row: row.act, cat: row.cat, minutes: finalDur, status: "completed" }, "session_completed");
+
     setTimerMinimized(false);
   };
 
@@ -492,7 +501,7 @@ function StudyTimetable({ user }: { user: User }) {
     if (minutes <= 0) return;
     const st = sessions[id];
     const reopened = st.status === "completed";
-    
+
     const nextSessions = { ...sessions };
     const remaining = (reopened ? 0 : st.remaining) + minutes * 60;
     const status = reopened ? "running" : st.status;
@@ -504,32 +513,29 @@ function StudyTimetable({ user }: { user: User }) {
 
     if (targetDeductId !== 'none' && nextSessions[targetDeductId]) {
       const dst = nextSessions[targetDeductId];
-      const oldDstAlloc = dst.durationAllocated ?? (ROWS.find(r => r.id === targetDeductId)?.dur || 0);
-      nextSessions[targetDeductId] = { 
-        ...dst, 
-        remaining: Math.max(0, dst.remaining - minutes * 60),
-        durationAllocated: Math.max(0, oldDstAlloc - minutes) 
-      };
+      nextSessions[targetDeductId] = { ...dst, remaining: Math.max(0, dst.remaining - minutes * 60) };
     } else {
       newShift += minutes;
     }
 
     let newLog = completedLog;
     let newChecklist = checklist;
-    
+
     if (reopened) {
        newLog = completedLog.filter(log => !(log.date === todayKey() && log.rowId === id));
-       const nextHeatmapLog = { ...heatmapLog, [todayKey()]: Math.max((heatmapLog[todayKey()] || 1) - 1, 0) };
-       setHeatmapLog(nextHeatmapLog);
-       updateUserStats({ heatmapLog: nextHeatmapLog });
-       
+       updateUserStats({ [`heatmapLog.${todayKey()}`]: Math.max((heatmapLog[todayKey()] || 1) - 1, 0) });
+
        const checklistItem = ROW_CHECKLIST_MAP[id];
        if (checklistItem) {
          newChecklist = { ...checklist, [checklistItem]: false };
        }
     }
 
-    const deductedFrom = targetDeductId !== 'none' ? ROWS.find((r) => r.id === targetDeductId)?.act || String(targetDeductId) : null;
+    // Silently log this extension to Firebase for the email engine.
+    const deductedFrom =
+      targetDeductId !== 'none'
+        ? ROWS.find((r) => r.id === targetDeductId)?.act || String(targetDeductId)
+        : null;
     const extensionEntry = {
       date: todayKey(),
       rowId: id,
@@ -550,8 +556,8 @@ function StudyTimetable({ user }: { user: User }) {
       extensionLog: [...extensionLog, extensionEntry],
     });
 
-    // SYNC EXTENSION TO SHEET
-    postToSheet({ row: ROWS.find(r => r.id === id), minutes: minutes, deductionTarget: deductedFrom }, "session_extended");
+    // Sync to Google Sheets
+    postToSheet(extensionEntry, reopened ? "session_reopened_extended" : "session_extended");
   };
 
   const saveExamDate = (key: ExamKey, val: string) => {
@@ -569,7 +575,7 @@ function StudyTimetable({ user }: { user: User }) {
   };
 
   /* =========================================================
-     DERIVED VIEW STATE & RENDER (CSS/HTML UNCHANGED)
+     DERIVED VIEW STATE
      ========================================================= */
   const now = new Date();
   const hh = now.getHours();
@@ -618,7 +624,7 @@ function StudyTimetable({ user }: { user: User }) {
     const byDay: Record<string, number> = { ...heatmapLog };
     const bestDay = Object.keys(byDay).sort((a, b) => byDay[b] - byDay[a])[0] || "—";
     const weakDay = Object.entries(byDay).filter(([, v]) => v > 0).sort((a, b) => a[1] - b[1])[0]?.[0] || "—";
-    
+
     return {
       cells: [
         ["TODAY", (sum(todayLogs) / 60).toFixed(1) + "h"],
@@ -635,6 +641,9 @@ function StudyTimetable({ user }: { user: User }) {
     };
   }, [completedLog, heatmapLog, streak]);
 
+  /* =========================================================
+     RENDER
+     ========================================================= */
   return (
     <div className="tt-root">
       <div className="tt-scaleWrap">
@@ -758,10 +767,9 @@ function StudyTimetable({ user }: { user: User }) {
                     pending.map((id) => {
                       const r = ROWS.find((x) => x.id === id);
                       if (!r) return null;
-                      const currentAlloc = sessions[id]?.durationAllocated ?? r.dur;
                       return (
                         <div key={id} className="tt-pendingItem">
-                          {r.icon} {r.act} <span style={{ color: "#999" }}>({currentAlloc}m)</span>
+                          {r.icon} {r.act} <span style={{ color: "#999" }}>({r.dur}m)</span>
                           <button onClick={() => startSession(id)}>Reschedule Now</button>
                         </div>
                       );
@@ -977,128 +985,20 @@ function StudyTimetable({ user }: { user: User }) {
           </div>
         );
       })()}
-      
+
       {/* CSS */}
       <style>{`
-        .tt-root { background: #f4f6f8; font-family: 'Inter', sans-serif; min-height: 100vh; padding: 20px; }
-        .tt-scaleWrap { width: 100%; max-width: 1400px; margin: 0 auto; }
-        .tt-app { background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); padding: 20px; }
-        
-        .tt-examStrip { display: flex; gap: 10px; margin-bottom: 15px; }
-        .tt-examBox { flex: 1; padding: 10px; text-align: center; border-radius: 8px; color: #fff; font-family: Oswald, sans-serif; cursor: pointer; position: relative; }
-        .tt-examBox.ssc { background: #059669; }
-        .tt-examBox.gate { background: #2563eb; }
-        .tt-examBox.ese { background: #dc2626; }
-        .tt-examBox .tt-num { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
-        .tt-examBox .tt-lbl { font-size: 14px; opacity: 0.9; }
-        .tt-examBox .tt-sub { font-size: 11px; opacity: 0.7; font-family: sans-serif; margin-top: 4px; }
-        .tt-examEdit { position: absolute; top: 100%; left: 0; right: 0; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10; display: flex; gap: 5px; margin-top: 5px; }
-        .tt-examEdit input { flex: 1; padding: 4px; font-size: 12px; }
-        .tt-examEdit button { padding: 4px 8px; background: #1f2870; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
-
-        .tt-header { background: #1f2870; color: #fff; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; box-shadow: inset 0 0 40px rgba(0,0,0,0.2); position: relative; overflow: hidden; }
-        .tt-headerTop { display: flex; justify-content: space-between; align-items: flex-start; }
-        .tt-brandIcon { font-size: 32px; margin-bottom: 10px; text-align: left; }
-        .tt-rulesList { text-align: left; font-size: 12px; line-height: 1.6; opacity: 0.85; font-family: monospace; }
-        .tt-rulesList span { color: #f0b429; margin-right: 6px; }
-        .tt-titleBlock h1 { margin: 0 0 10px 0; font-size: 36px; font-family: Oswald, sans-serif; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
-        .tt-examTags { font-size: 13px; font-weight: bold; background: #fff; display: inline-block; padding: 4px 15px; border-radius: 20px; color: #333; margin-bottom: 15px; }
-        .tt-examTags b.blue { color: #2563eb; } .tt-examTags b.red { color: #dc2626; } .tt-examTags b.green { color: #059669; } .tt-examTags b.purple { color: #9333ea; } .tt-examTags b.orange { color: #ea580c; }
-        .tt-motto { font-size: 14px; font-weight: bold; color: #f0b429; letter-spacing: 2px; }
-        .tt-targetBlock { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; line-height: 1.8; border: 1px solid rgba(255,255,255,0.2); }
-        .tt-targetBlock .t1 { color: #f87171; } .tt-targetBlock .t2 { color: #60a5fa; } .tt-targetBlock .t3 { color: #4ade80; }
-        .tt-liveRow { display: flex; justify-content: center; gap: 30px; margin: 20px 0 15px 0; align-items: center; }
-        .tt-greet { font-size: 18px; font-weight: bold; color: #fcd34d; }
-        .tt-clock { font-size: 24px; font-family: monospace; font-weight: bold; background: rgba(0,0,0,0.2); padding: 6px 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
-        .tt-quoteBar { background: #f0b429; color: #111; padding: 8px; font-size: 14px; font-style: italic; font-weight: 600; border-radius: 4px; margin: 0 auto; max-width: 800px; margin-bottom: 15px; }
-
-        .tt-mainGrid { display: flex; gap: 20px; }
-        .tt-leftCol { flex: 1; }
-        .tt-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 14px; }
-        .tt-table th { background: #e2e8f0; color: #475569; padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
-        .tt-table th:first-child { border-radius: 6px 0 0 6px; } .tt-table th:last-child { border-radius: 0 6px 6px 0; }
-        .tt-table td { padding: 12px 10px; background: #fff; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-        .tt-table td:first-child { border-left: 1px solid #f1f5f9; border-radius: 6px 0 0 6px; }
-        .tt-table td:last-child { border-right: 1px solid #f1f5f9; border-radius: 0 6px 6px 0; }
-        .tt-rowLIFE td { background: #f8fafc; color: #64748b; }
-        .tt-rowRUN td { background: #fffbeb; border-color: #fde68a; }
-        .tt-rowRUN td:first-child { border-left: 4px solid #f59e0b; }
-        .tt-rowPAUSE td { background: #fef2f2; }
-        .tt-rowPAUSE td:first-child { border-left: 4px solid #ef4444; }
-        .tt-rowDONE td { background: #f0fdf4; opacity: 0.8; }
-        .tt-rowDONE td:first-child { border-left: 4px solid #22c55e; }
-        .tt-rowIcon { font-size: 18px; text-align: center; }
-        .tt-statusPill { font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 12px; }
-        .tt-st-notstarted { background: #f1f5f9; color: #64748b; }
-        .tt-st-running { background: #f59e0b; color: #fff; animation: pulse 2s infinite; }
-        .tt-st-paused { background: #ef4444; color: #fff; }
-        .tt-st-completed { background: #22c55e; color: #fff; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
-        
-        .tt-rowTimer { font-family: monospace; font-size: 16px; font-weight: bold; color: #333; }
-        .tt-rowTimer.critical { color: #ef4444; animation: blink 1s infinite; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-        
-        .tt-actBtns { display: flex; gap: 4px; }
-        .tt-actBtns button { width: 28px; height: 28px; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: 0.2s; }
-        .tt-actBtns button:disabled { opacity: 0.3; cursor: not-allowed; }
-        .tt-b-start { background: #1f2870; color: #fff; } .tt-b-start:not(:disabled):hover { background: #2a3699; }
-        .tt-b-pause { background: #f59e0b; color: #fff; } .tt-b-pause:not(:disabled):hover { background: #d97706; }
-        .tt-b-ext { background: #8b5cf6; color: #fff; } .tt-b-ext:not(:disabled):hover { background: #7c3aed; }
-        .tt-b-done { background: #22c55e; color: #fff; } .tt-b-done:not(:disabled):hover { background: #16a34a; }
-
-        .tt-pendingBox { background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 15px; margin-top: 20px; }
-        .tt-pendingBox h3 { margin: 0 0 10px 0; font-size: 14px; color: #c53030; }
-        .tt-pendingList { display: flex; flex-wrap: wrap; gap: 10px; }
-        .tt-pendingItem { background: #fff; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; border: 1px solid #fed7d7; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .tt-pendingItem button { background: #c53030; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
-        .tt-pendingItem button:hover { background: #9b2c2c; }
-        .tt-pendingEmpty { font-size: 13px; color: #718096; font-style: italic; }
-
-        .tt-bottomGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px; }
-        .tt-col { display: flex; flex-direction: column; gap: 20px; }
-        .tt-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); overflow: hidden; display: flex; flex-direction: column; }
-        .tt-card h3 { background: #f8fafc; margin: 0; padding: 12px; font-size: 13px; color: #475569; border-bottom: 1px solid #e2e8f0; letter-spacing: 0.5px; }
-        .tt-cardBody { padding: 15px; font-size: 13px; flex: 1; }
-        
-        .tt-rotationTable { width: 100%; border-collapse: collapse; }
-        .tt-rotationTable td { padding: 6px; border-bottom: 1px solid #f1f5f9; }
-        .tt-rotationTable tr.today td { background: #eff6ff; color: #1d4ed8; font-weight: bold; }
-        
-        .tt-analyticsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px; }
-        .tt-analyticsGrid > div { background: #f8fafc; padding: 10px; border-radius: 6px; text-align: center; font-size: 10px; color: #64748b; font-weight: bold; }
-        .tt-analyticsGrid b { display: block; font-size: 16px; color: #1f2870; margin-bottom: 2px; font-family: Oswald, sans-serif; }
-        
-        .tt-examCoverage { list-style: none; padding: 0; margin: 0; }
-        .tt-examCoverage li { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; color: #334155; font-weight: 500; }
-        .tt-examCoverage li:before { content: "•"; color: #3b82f6; font-weight: bold; display: inline-block; width: 1em; }
-        
-        .tt-ringWrap { display: flex; align-items: center; padding: 15px; gap: 15px; }
-        .tt-ringCanvas { width: 84px; height: 84px; }
-        .tt-statList { font-size: 13px; color: #475569; line-height: 1.6; }
-        .tt-statList b { color: #1f2870; font-size: 15px; }
-        
-        .tt-goldenRules { list-style: none; padding: 0; margin: 0; }
-        .tt-goldenRules li { padding: 5px 0; font-weight: 600; color: #1f2870; }
-        .tt-goldenRules li:before { content: "★"; color: #f59e0b; margin-right: 6px; }
-        
-        .tt-emailCard { background: #f0fdf4; border-color: #bbf7d0; }
-        .tt-emailCard h3 { background: #dcfce7; color: #166534; border-bottom-color: #bbf7d0; }
-        .tt-emailCard p { padding: 15px; font-size: 12px; color: #166534; margin: 0; line-height: 1.5; font-weight: 500; }
-        
-        .tt-heatmapWrap { padding: 15px; }
-        .tt-heatmapGrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; margin-bottom: 10px; }
-        .tt-hcell { aspect-ratio: 1; background: #ebedf0; border-radius: 2px; }
-        .tt-hcell.l1 { background: #9be9a8; } .tt-hcell.l2 { background: #40c463; } .tt-hcell.l3 { background: #30a14e; } .tt-hcell.l4 { background: #216e39; }
-        .tt-heatmapLegend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; color: #64748b; }
-        .tt-heatmapLegend .tt-hcell { width: 10px; height: 10px; }
-        
-        .tt-checklist { padding: 15px; display: flex; flex-direction: column; gap: 8px; }
-        .tt-checklist label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; }
-        .tt-checklist input { width: 16px; height: 16px; cursor: pointer; }
-        
-        .tt-rememberBox { background: #1f2870; color: #fff; text-align: center; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 13px; line-height: 1.6; border: 2px solid #f0b429; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .tt-footerQuote { text-align: center; margin-top: 30px; font-size: 12px; font-weight: bold; color: #94a3b8; letter-spacing: 1px; }
+        .tt-modalOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.75); z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 15px; }
+        .tt-modalBox { background: white; width: 100%; max-width: 420px; border-radius: 16px; padding: 24px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .tt-modalBox h3 { margin-top: 0; color: #1f2870; font-size: 20px; font-weight: 800; margin-bottom: 16px; }
+        .tt-modalBox label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #4b5563; }
+        .tt-modalBox select, .tt-modalBox input { width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 16px; outline: none; }
+        .tt-modalBox select:focus, .tt-modalBox input:focus { border-color: #1f2870; }
+        .tt-extBtnGroup { display: flex; gap: 8px; margin-bottom: 12px; }
+        .tt-extBtnGroup button { flex: 1; padding: 8px 0; font-size: 14px; font-weight: 600; background: #f3f4f6; color: #4b5563; border: 2px solid transparent; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .tt-extBtnGroup button.active { background: #e0e7ff; color: #1f2870; border-color: #1f2870; }
+        .tt-modalActions { display: flex; gap: 12px; margin-top: 24px; justify-content: flex-end; }
+        .tt-modalActions button { padding: 10px 20px; border-radius: 8px; font-weight: bold; font-size: 14px; border: none; cursor: pointer; }
 
         .tt-timerMini { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #1f2870; color: white; padding: 10px 30px; border-radius: 50px; display: flex; align-items: center; gap: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 9998; cursor: pointer; border: 2px solid #f0b429; transition: transform 0.2s; }
         .tt-timerMini:active { transform: translateX(-50%) scale(0.95); }
@@ -1113,36 +1013,101 @@ function StudyTimetable({ user }: { user: User }) {
         /* ===== GLASS EXTENSION MODAL ===== */
         @keyframes ttGlassIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
         @keyframes ttFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .tt-glassOverlay { position: fixed; inset: 0; z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 16px; background: radial-gradient(ellipse at center, rgba(31,40,112,0.55), rgba(0,0,0,0.75)); backdrop-filter: blur(8px); animation: ttFadeIn .2s ease-out; }
-        .tt-glassBox { width: 100%; max-width: 440px; background: linear-gradient(160deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85)); backdrop-filter: blur(24px); border: 1px solid rgba(255,255,255,0.6); border-radius: 22px; padding: 22px 24px 20px; box-shadow: 0 24px 60px rgba(15,20,50,0.35), inset 0 1px 0 rgba(255,255,255,0.7); color: #1f2870; font-family: 'Inter', sans-serif; animation: ttGlassIn .28s cubic-bezier(.2,.9,.3,1.2); }
+        .tt-glassOverlay {
+          position: fixed; inset: 0; z-index: 9999;
+          display: flex; justify-content: center; align-items: center; padding: 16px;
+          background: radial-gradient(ellipse at center, rgba(21,27,77,0.55), rgba(0,0,0,0.75));
+          backdrop-filter: blur(14px) saturate(140%);
+          animation: ttFadeIn .2s ease-out;
+        }
+        .tt-glassBox {
+          width: 100%; max-width: 440px;
+          background: linear-gradient(160deg, rgba(255,255,255,0.85), rgba(255,255,255,0.65));
+          backdrop-filter: blur(24px) saturate(160%);
+          border: 1px solid rgba(255,255,255,0.6);
+          border-radius: 22px;
+          padding: 22px 24px 20px;
+          box-shadow: 0 24px 60px rgba(15,20,50,0.35), inset 0 1px 0 rgba(255,255,255,0.7);
+          color: #1b1e2b; font-family: var(--tt-font-body);
+          animation: ttGlassIn .28s cubic-bezier(.2,.9,.3,1.2);
+        }
         .tt-glassHead { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-        .tt-glassIcon { width: 44px; height: 44px; border-radius: 14px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 22px; background: linear-gradient(145deg, #f0b429, #e8862e); box-shadow: 0 6px 14px rgba(232,134,46,0.35), inset 0 1px 0 rgba(255,255,255,0.6); }
-        .tt-glassEyebrow { font-size: 10px; font-weight: 800; letter-spacing: 1.2px; color: #64748b; text-transform: uppercase; }
-        .tt-glassTitle { font-size: 18px; font-weight: 800; color: #1f2870; line-height: 1.15; max-width: 280px; }
-        .tt-glassClose { margin-left: auto; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(31,40,112,0.15); background: rgba(255,255,255,0.6); font-size: 20px; line-height: 1; color: #475569; cursor: pointer; transition: transform .15s, background .15s; }
+        .tt-glassIcon {
+          width: 44px; height: 44px; border-radius: 14px; flex: 0 0 auto;
+          display: flex; align-items: center; justify-content: center; font-size: 22px;
+          background: linear-gradient(145deg, #f2c14e, #e8862e);
+          box-shadow: 0 6px 14px rgba(232,134,46,0.35), inset 0 1px 0 rgba(255,255,255,0.6);
+        }
+        .tt-glassEyebrow { font-size: 10px; font-weight: 800; letter-spacing: 1.2px; color: #6b7280; text-transform: uppercase; }
+        .tt-glassTitle { font-family: var(--tt-font-display); font-size: 18px; font-weight: 800; color: #151b4d; line-height: 1.15; max-width: 280px; }
+        .tt-glassClose {
+          margin-left: auto; width: 32px; height: 32px; border-radius: 50%;
+          border: 1px solid rgba(21,27,77,0.15); background: rgba(255,255,255,0.6);
+          font-size: 20px; line-height: 1; color: #4b5563; cursor: pointer;
+          transition: transform .15s, background .15s;
+        }
         .tt-glassClose:hover { background: #fff; transform: rotate(90deg); }
+
         .tt-glassSection { margin-bottom: 16px; }
-        .tt-glassLabel { font-size: 12px; font-weight: 700; color: #334155; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
-        .tt-glassOptional { color: #94a3b8; font-weight: 500; text-transform: none; letter-spacing: 0; }
+        .tt-glassLabel { font-size: 12px; font-weight: 700; color: #374151; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+        .tt-glassOptional { color: #9ca3af; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
         .tt-glassChips { display: flex; gap: 8px; margin-bottom: 10px; }
-        .tt-glassChip { flex: 1; padding: 9px 0; font-size: 13px; font-weight: 700; background: rgba(255,255,255,0.55); color: #475569; border: 1px solid rgba(31,40,112,0.12); border-radius: 12px; cursor: pointer; transition: all .18s; }
+        .tt-glassChip {
+          flex: 1; padding: 9px 0; font-size: 13px; font-weight: 700;
+          background: rgba(255,255,255,0.55); color: #4b5563;
+          border: 1px solid rgba(21,27,77,0.12); border-radius: 12px;
+          cursor: pointer; transition: all .18s;
+        }
         .tt-glassChip:hover { background: #fff; transform: translateY(-1px); }
-        .tt-glassChip.active { background: linear-gradient(145deg, #1f2870, #2a3699); color: #f0b429; border-color: #1f2870; box-shadow: 0 6px 14px rgba(31,40,112,0.35); }
-        .tt-glassStepper { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.55); border: 1px solid rgba(31,40,112,0.12); border-radius: 14px; padding: 4px; }
-        .tt-glassStepper button { width: 40px; height: 40px; border-radius: 10px; border: none; background: transparent; font-size: 22px; font-weight: 700; color: #1f2870; cursor: pointer; transition: background .15s; }
+        .tt-glassChip.active {
+          background: linear-gradient(145deg, #151b4d, #1f2870);
+          color: #f2c14e; border-color: #151b4d;
+          box-shadow: 0 6px 14px rgba(21,27,77,0.35);
+        }
+
+        .tt-glassStepper {
+          display: flex; align-items: center; justify-content: space-between;
+          background: rgba(255,255,255,0.55); border: 1px solid rgba(21,27,77,0.12);
+          border-radius: 14px; padding: 4px;
+        }
+        .tt-glassStepper button {
+          width: 40px; height: 40px; border-radius: 10px; border: none;
+          background: transparent; font-size: 22px; font-weight: 700; color: #151b4d;
+          cursor: pointer; transition: background .15s;
+        }
         .tt-glassStepper button:hover { background: rgba(21,27,77,0.08); }
-        .tt-glassStepperValue { display: flex; align-items: baseline; gap: 4px; }
-        .tt-glassStepperValue span { font-size: 26px; font-weight: 800; color: #1f2870; }
-        .tt-glassStepperValue small { font-size: 11px; color: #64748b; font-weight: 700; }
-        .tt-glassSelect { width: 100%; padding: 12px 14px; background: rgba(255,255,255,0.7); color: #1f2870; border: 1px solid rgba(31,40,112,0.15); border-radius: 12px; font-size: 14px; font-weight: 600; outline: none; cursor: pointer; transition: border-color .15s, background .15s; }
-        .tt-glassSelect:focus { border-color: #1f2870; background: #fff; }
-        .tt-glassHint { margin-top: 8px; font-size: 11px; color: #64748b; font-style: italic; }
+        .tt-glassStepperValue { display: flex; align-items: baseline; gap: 4px; font-family: var(--tt-font-display); }
+        .tt-glassStepperValue span { font-size: 26px; font-weight: 800; color: #151b4d; }
+        .tt-glassStepperValue small { font-size: 11px; color: #6b7280; font-weight: 700; }
+
+        .tt-glassSelect {
+          width: 100%; padding: 12px 14px;
+          background: rgba(255,255,255,0.7); color: #1b1e2b;
+          border: 1px solid rgba(21,27,77,0.15); border-radius: 12px;
+          font-size: 14px; font-weight: 600; outline: none; cursor: pointer;
+          transition: border-color .15s, background .15s;
+        }
+        .tt-glassSelect:focus { border-color: #151b4d; background: #fff; }
+        .tt-glassHint { margin-top: 8px; font-size: 11px; color: #6b7280; font-style: italic; }
+
         .tt-glassActions { display: flex; gap: 10px; margin-top: 20px; }
-        .tt-glassBtn { flex: 1; padding: 12px 16px; border-radius: 12px; border: none; font-weight: 800; font-size: 14px; cursor: pointer; transition: all .18s; letter-spacing: .3px; }
-        .tt-glassBtn.ghost { background: rgba(255,255,255,0.55); color: #475569; border: 1px solid rgba(31,40,112,0.12); }
-        .tt-glassBtn.ghost:hover { background: #fff; color: #1f2870; }
-        .tt-glassBtn.primary { background: linear-gradient(145deg, #1f2870, #2a3699); color: #f0b429; box-shadow: 0 8px 20px rgba(31,40,112,0.35), inset 0 1px 0 rgba(255,255,255,0.15); }
-        .tt-glassBtn.primary:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(31,40,112,0.45); }
+        .tt-glassBtn {
+          flex: 1; padding: 12px 16px; border-radius: 12px; border: none;
+          font-weight: 800; font-size: 14px; cursor: pointer; transition: all .18s;
+          font-family: var(--tt-font-body); letter-spacing: .3px;
+        }
+        .tt-glassBtn.ghost {
+          background: rgba(255,255,255,0.55); color: #4b5563;
+          border: 1px solid rgba(21,27,77,0.12);
+        }
+        .tt-glassBtn.ghost:hover { background: #fff; color: #1b1e2b; }
+        .tt-glassBtn.primary {
+          background: linear-gradient(145deg, #151b4d, #1f2870);
+          color: #f2c14e;
+          box-shadow: 0 8px 20px rgba(21,27,77,0.35), inset 0 1px 0 rgba(255,255,255,0.15);
+        }
+        .tt-glassBtn.primary:hover { transform: translateY(-1px); box-shadow: 0 12px 24px rgba(21,27,77,0.45); }
       `}</style>
     </div>
   );
