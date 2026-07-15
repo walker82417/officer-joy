@@ -154,7 +154,7 @@ function AppWrapper() {
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f4f6f8', color: '#151b4d', fontFamily: 'sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f4f6f8', color: '#1f2870', fontFamily: 'sans-serif' }}>
         <h2>Connecting to Command Center...</h2>
       </div>
     );
@@ -162,46 +162,20 @@ function AppWrapper() {
 
   if (!user) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#151b4d', color: 'white', fontFamily: 'sans-serif' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#1f2870', color: 'white', fontFamily: 'sans-serif' }}>
         <h1 style={{ fontSize: '48px', margin: '0 0 10px 0' }}>Officer Rohan's Timetable</h1>
         <p style={{ fontSize: '18px', opacity: 0.8, marginBottom: '30px' }}>Firebase Secured Architecture</p>
         
-        {/* EMAIL & PASSWORD LOGIN BOX */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '320px', marginBottom: '20px' }}>
-          <input 
-            type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} 
-            style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }} 
-          />
-          <input 
-            type="password" placeholder="Password (min 6 chars)" value={pass} onChange={e => setPass(e.target.value)} 
-            style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }} 
-          />
+          <input type="email" placeholder="Email Address" value={email} onChange={e => setEmail(e.target.value)} style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }} />
+          <input type="password" placeholder="Password (min 6 chars)" value={pass} onChange={e => setPass(e.target.value)} style={{ padding: '14px', borderRadius: '8px', border: 'none', fontSize: '16px', outline: 'none' }} />
           <div style={{ display: 'flex', gap: '10px' }}>
-            <button 
-              onClick={() => signInWithEmailAndPassword(auth, email, pass).catch(e => alert("LOGIN ERROR: " + e.message))} 
-              style={{ flex: 1, padding: '12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
-              Login
-            </button>
-            <button 
-              onClick={() => createUserWithEmailAndPassword(auth, email, pass).catch(e => alert("SIGNUP ERROR: " + e.message))} 
-              style={{ flex: 1, padding: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>
-              Sign Up
-            </button>
+            <button onClick={() => signInWithEmailAndPassword(auth, email, pass).catch(e => alert("LOGIN ERROR: " + e.message))} style={{ flex: 1, padding: '12px', background: '#22c55e', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>Login</button>
+            <button onClick={() => createUserWithEmailAndPassword(auth, email, pass).catch(e => alert("SIGNUP ERROR: " + e.message))} style={{ flex: 1, padding: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '16px' }}>Sign Up</button>
           </div>
         </div>
-
         <div style={{ margin: '10px 0', opacity: 0.5, fontSize: '14px' }}>— OR —</div>
-
-        {/* GOOGLE LOGIN FALLBACK */}
-        <button 
-          onClick={() => {
-            signInWithPopup(auth, googleProvider).catch((error) => {
-              alert("GOOGLE LOGIN ERROR: " + error.message);
-            });
-          }} 
-          style={{ padding: '14px 32px', background: '#f2c14e', color: '#111', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s', marginTop: '10px' }}>
-          Verify with Google
-        </button>
+        <button onClick={() => signInWithPopup(auth, googleProvider).catch((error) => alert("GOOGLE LOGIN ERROR: " + error.message))} style={{ padding: '14px 32px', background: '#f0b429', color: '#111', border: 'none', borderRadius: '8px', fontSize: '16px', fontWeight: 'bold', cursor: 'pointer', transition: 'transform 0.2s', marginTop: '10px' }}>Verify with Google</button>
       </div>
     );
   }
@@ -380,32 +354,33 @@ function StudyTimetable({ user }: { user: User }) {
     const ctx = cvs.getContext("2d");
     if (!ctx) return;
     const dpr = window.devicePixelRatio || 1;
-    const size = 80;
+    const size = 84;
     cvs.width = size * dpr; cvs.height = size * dpr;
     cvs.style.width = size + "px"; cvs.style.height = size + "px";
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.scale(dpr, dpr);
     const pct = liveProgress.pct;
     ctx.clearRect(0, 0, size, size);
-    const cx = size / 2, cy = size / 2, r = 32, lw = 10;
-    ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.strokeStyle = "#e2e8f0";
+    const cx = size / 2, cy = size / 2, r = 34, lw = 12;
+    ctx.lineWidth = lw; ctx.lineCap = "round"; ctx.strokeStyle = "#e6e8f0";
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke();
     if (pct > 0) {
       const grad = ctx.createLinearGradient(0, 0, size, size);
-      grad.addColorStop(0, "#f2c14e");
+      grad.addColorStop(0, "#f0b429");
+      grad.addColorStop(0.5, "#2563eb");
       grad.addColorStop(1, "#22c55e");
       ctx.strokeStyle = grad;
       ctx.beginPath();
       ctx.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * pct);
       ctx.stroke();
     }
-    ctx.fillStyle = "#151b4d"; ctx.font = "700 15px Oswald, sans-serif";
+    ctx.fillStyle = "#1f2870"; ctx.font = "700 16px Oswald, sans-serif";
     ctx.textAlign = "center"; ctx.textBaseline = "middle";
     ctx.fillText(Math.round(pct * 100) + "%", cx, cy);
   }, [liveProgress]);
 
   /* =========================================================
-     ACTIONS
+     ACTIONS (Pushing to Firebase)
      ========================================================= */
   const startSession = (id: number) => {
     const st = sessions[id];
@@ -478,7 +453,7 @@ function StudyTimetable({ user }: { user: User }) {
     nextSessions[id] = { ...st, status: status as SessionStatus, remaining, endTs, durationAllocated: oldAllocated + minutes, warned: false };
     let newShift = timeShift;
 
-    // PENDING MISSIONS FIX: Mathematically deducts the time from the traded subject
+    // PENDING MISSIONS BUG FIX: Mathematically deducts the time from the traded subject
     if (targetDeductId !== 'none' && nextSessions[targetDeductId]) {
       const dst = nextSessions[targetDeductId];
       const oldDstAlloc = dst.durationAllocated ?? (ROWS.find(r => r.id === targetDeductId)?.dur || 0);
@@ -600,290 +575,289 @@ function StudyTimetable({ user }: { user: User }) {
   }, [completedLog, heatmapLog, streak]);
 
   /* =========================================================
-     RENDER
+     RENDER 
      ========================================================= */
   return (
-    <div className={`tt-root ${mounted ? 'loaded' : ''}`}>
-      <div className="tt-app">
-        
-        {/* EXAM STRIP */}
-        <div className="tt-examStrip">
-          {(["ssc", "gate", "ese"] as ExamKey[]).map((key) => {
-            const e = examDates[key];
-            const c = mounted ? countdownParts(e.date) : { d: 0, h: 0, m: 0, s: 0 };
-            return (
-              <div key={key} className={`tt-examBox ${key}`} onClick={() => setEditingExam((cur) => (cur === key ? null : key))}>
-                <div className="tt-num">
-                  {mounted ? `${c.d}d : ${String(c.h).padStart(2, "0")}h : ${String(c.m).padStart(2, "0")}m : ${String(c.s).padStart(2, "0")}s` : "-- : -- : -- : --"}
-                </div>
-                <div className="tt-lbl">TO {e.label}</div>
-                <div className="tt-sub">target: {e.date} (tap to edit)</div>
-                {editingExam === key && (
-                  <div className="tt-examEdit" onClick={(ev) => ev.stopPropagation()}>
-                    <input type="date" defaultValue={e.date} onKeyDown={(ev) => { if (ev.key === "Enter") saveExamDate(key, (ev.target as HTMLInputElement).value); }} id={`edit_${key}`} />
-                    <button onClick={() => { const el = document.getElementById(`edit_${key}`) as HTMLInputElement | null; if (el) saveExamDate(key, el.value); }}>Save</button>
+    <div className="tt-root">
+      <div className="tt-scaleWrap">
+        <div className="tt-app">
+          
+          {/* EXAM STRIP */}
+          <div className="tt-examStrip">
+            {(["ssc", "gate", "ese"] as ExamKey[]).map((key) => {
+              const e = examDates[key];
+              const c = mounted ? countdownParts(e.date) : { d: 0, h: 0, m: 0, s: 0 };
+              return (
+                <div key={key} className={`tt-examBox ${key}`} onClick={() => setEditingExam((cur) => (cur === key ? null : key))}>
+                  <div className="tt-num">
+                    {mounted ? `${c.d}d : ${String(c.h).padStart(2, "0")}h : ${String(c.m).padStart(2, "0")}m : ${String(c.s).padStart(2, "0")}s` : "-- : -- : -- : --"}
                   </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* HEADER AREA */}
-        <div className="tt-header">
-          <div className="tt-headerTop">
-            <div style={{ flex: 1, minWidth: '200px' }}>
-              <div className="tt-brandIcon">💡</div>
-              <div className="tt-rulesList">
-                <div><span>✔</span>Plan Your Work</div>
-                <div><span>✔</span>Work Your Plan</div>
-                <div><span>✔</span>Stay Consistent</div>
-                <div><span>✔</span>Success is Inevitable</div>
-              </div>
-            </div>
-            
-            <div className="tt-titleBlock">
-              <h1>UNIVERSAL STUDY TIMETABLE</h1>
-              <div className="tt-examTags">
-                <b className="blue">UPSC ESE (ELECTRICAL)</b> | <b className="red">MPSC</b> | <b className="green">SSC JE</b> | <b className="purple">RRB JE</b> | <b className="orange">SSC CGL</b> | <b className="blue">RAILWAYS</b>
-              </div>
-            </div>
-            
-            <div className="tt-targetBlock">
-              🎯<br /><span className="t1">FOCUS</span><br /><span className="t2">DISCIPLINE</span><br /><span className="t3">SUCCESS</span>
-            </div>
+                  <div className="tt-lbl">TO {e.label}</div>
+                  <div className="tt-sub">target: {e.date} (tap to edit)</div>
+                  {editingExam === key && (
+                    <div className="tt-examEdit" onClick={(ev) => ev.stopPropagation()}>
+                      <input type="date" defaultValue={e.date} onKeyDown={(ev) => { if (ev.key === "Enter") saveExamDate(key, (ev.target as HTMLInputElement).value); }} id={`edit_${key}`} />
+                      <button onClick={() => { const el = document.getElementById(`edit_${key}`) as HTMLInputElement | null; if (el) saveExamDate(key, el.value); }}>Save</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
-          
-          <div className="tt-motto">★ ★ &nbsp; ONE DAY OR DAY ONE. YOU DECIDE. &nbsp; ★ ★</div>
 
-          <div className="tt-liveRow">
-            <div className="tt-greet">{greetLine}</div>
-            <div className="tt-clock">{clockLine}</div>
-          </div>
-          
-          <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
-          
-          <div className="tt-syncIndicatorWrap">
-            <div className="tt-syncIndicator">
-              <span className="tt-syncDot" aria-hidden="true" />
+          {/* HEADER */}
+          <div className="tt-header">
+            <div className="tt-headerTop">
+              <div style={{ width: 150 }}>
+                <div className="tt-brandIcon">💡</div>
+                <div className="tt-rulesList">
+                  <div><span>✔</span>Plan Your Work</div>
+                  <div><span>✔</span>Work Your Plan</div>
+                  <div><span>✔</span>Stay Consistent</div>
+                  <div><span>✔</span>Success is Inevitable</div>
+                </div>
+              </div>
+              <div className="tt-titleBlock">
+                <h1>UNIVERSAL STUDY TIMETABLE</h1>
+                <div className="tt-examTags">
+                  <b className="blue">UPSC ESE (ELECTRICAL)</b> | <b className="red">MPSC</b> | <b className="green">SSC JE</b> | <b className="purple">RRB JE</b> | <b className="orange">SSC CGL</b> | <b className="blue">RAILWAYS</b>
+                </div>
+                <div className="tt-motto">★ ★ &nbsp; ONE DAY OR DAY ONE. YOU DECIDE. &nbsp; ★ ★</div>
+              </div>
+              <div style={{ width: 150 }}>
+                <div className="tt-targetBlock">
+                  🎯<br /><span className="t1">FOCUS</span><br /><span className="t2">DISCIPLINE</span><br /><span className="t3">SUCCESS</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="tt-liveRow">
+              <div className="tt-greet">{greetLine}</div>
+              <div className="tt-clock">{clockLine}</div>
+            </div>
+            <div className="tt-quoteBar">&ldquo;{dailyQuote}&rdquo;</div>
+            <div className="tt-syncIndicator" style={{ background: '#dcfce7', color: '#166534', border: '1px solid #bbf7d0', padding: '6px 12px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '8px', fontSize: '13px', fontWeight: 'bold' }}>
+              <span className="tt-syncDot" aria-hidden="true" style={{ background: '#22c55e', width: '8px', height: '8px', borderRadius: '50%', display: 'inline-block' }} />
               <span>Firebase Database Synced ⚡ ({user.email})</span>
             </div>
           </div>
-        </div>
 
-        {/* MAIN GRID */}
-        <div className="tt-mainGrid">
-          <table className="tt-table">
-            <thead>
-              <tr>
-                <th style={{ width: "4%" }}></th><th style={{ width: "9%" }}>TIME</th><th style={{ width: "29%" }}>ACTIVITY</th><th style={{ width: "29%" }}>FOCUS / SUBJECT</th><th style={{ width: "8%", textAlign: "center" }}>STATUS</th><th style={{ width: "9%", textAlign: "center" }}>TIMER</th><th style={{ width: "12%", textAlign: "center" }}>ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map((r) => {
-                if (!isFocusRow(r)) {
-                  return (
-                    <tr key={r.id} className="tt-rowLIFE">
-                      <td className="tt-rowIcon">{r.icon}</td><td>{displayedStart(r)}</td><td><b>{r.act}</b></td><td>{r.focus}</td><td colSpan={3} style={{ textAlign: "center" }}>— not a focus session —</td>
-                    </tr>
-                  );
-                }
-                const st = sessions[r.id];
-                const rowClass = st.status === "running" ? "tt-rowRUN" : st.status === "paused" ? "tt-rowPAUSE" : st.status === "completed" ? "tt-rowDONE" : "tt-rowNS";
-                const pillClass = "tt-st-" + st.status;
-                const pillLabel = st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase();
-                const critical = st.status === "running" && st.remaining <= 5;
-                const anotherSessionRunning = Boolean(runningRow && runningRow.id !== r.id);
-                const disableStart = st.status === "running" || st.status === "completed" || anotherSessionRunning;
-                const disablePause = st.status !== "running";
-                const disableDone = st.status === "completed" || st.status === "notstarted" || st.remaining > 10 * 60;
-                const canExtend = st.status === "completed" || st.remaining <= 600;
-
-                return (
-                  <tr key={r.id} className={rowClass}>
-                    <td className="tt-rowIcon">{r.icon}</td>
-                    <td>{displayedStart(r)}</td>
-                    <td><b>{r.act}</b></td>
-                    <td>{r.focus}</td>
-                    <td style={{ textAlign: "center" }}><span className={`tt-statusPill ${pillClass}`}>{pillLabel}</span></td>
-                    <td style={{ textAlign: "center" }} className={`tt-rowTimer ${critical ? "critical" : ""}`}>{fmtTime(st.remaining)}</td>
-                    <td className="tt-actBtns" style={{ justifyContent: "center" }}>
-                      <button className="tt-b-start" disabled={disableStart} onClick={() => startSession(r.id)}>▶</button>
-                      <button className="tt-b-pause" disabled={disablePause} onClick={() => pauseSession(r.id)}>⏸</button>
-                      <button className="tt-b-ext" disabled={!canExtend} onClick={() => setExtendModal({ id: r.id })}>➕</button>
-                      <button className="tt-b-done" disabled={disableDone} onClick={() => completeSession(r.id)}>✓</button>
-                    </td>
+          {/* MAIN GRID */}
+          <div className="tt-mainGrid">
+            <div className="tt-leftCol">
+              <table className="tt-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: "4%" }}></th><th style={{ width: "9%" }}>TIME</th><th style={{ width: "29%" }}>ACTIVITY</th><th style={{ width: "29%" }}>FOCUS / SUBJECT</th><th style={{ width: "8%", textAlign: "center" }}>STATUS</th><th style={{ width: "9%", textAlign: "center" }}>TIMER</th><th style={{ width: "12%", textAlign: "center" }}>ACTIONS</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {ROWS.map((r) => {
+                    if (!isFocusRow(r)) {
+                      return (
+                        <tr key={r.id} className="tt-rowLIFE">
+                          <td className="tt-rowIcon">{r.icon}</td><td>{displayedStart(r)}</td><td><b>{r.act}</b></td><td>{r.focus}</td><td colSpan={3} style={{ textAlign: "center", color: "#bbb" }}>— not a focus session —</td>
+                        </tr>
+                      );
+                    }
+                    const st = sessions[r.id];
+                    const rowClass = st.status === "running" ? "tt-rowRUN" : st.status === "paused" ? "tt-rowPAUSE" : st.status === "completed" ? "tt-rowDONE" : "tt-rowNS";
+                    const pillClass = "tt-st-" + st.status;
+                    const pillLabel = st.status === "notstarted" ? "NOT STARTED" : st.status.toUpperCase();
+                    const critical = st.status === "running" && st.remaining <= 5;
+                    const anotherSessionRunning = Boolean(runningRow && runningRow.id !== r.id);
+                    const disableStart = st.status === "running" || st.status === "completed" || anotherSessionRunning;
+                    const disablePause = st.status !== "running";
+                    const disableDone = st.status === "completed" || st.status === "notstarted" || st.remaining > 10 * 60;
+                    const canExtend = st.status === "completed" || st.remaining <= 600;
 
-          {/* PENDING MISSIONS */}
-          {pending.length > 0 && (
-            <div className="tt-pendingBox">
-              <h3>⚠ PENDING MISSIONS</h3>
-              <div className="tt-pendingList">
-                {pending.map((id) => {
-                  const r = ROWS.find((x) => x.id === id);
-                  if (!r) return null;
-                  const currentAlloc = sessions[id]?.durationAllocated ?? r.dur;
-                  return (
-                    <div key={id} className="tt-pendingItem">
-                      {r.icon} {r.act} <span style={{ color: "#999" }}>({currentAlloc}m)</span>
-                      <button onClick={() => startSession(id)}>Reschedule Now</button>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+                    return (
+                      <tr key={r.id} className={rowClass}>
+                        <td className="tt-rowIcon">{r.icon}</td>
+                        <td>{displayedStart(r)}</td>
+                        <td><b>{r.act}</b></td>
+                        <td>{r.focus}</td>
+                        <td style={{ textAlign: "center" }}><span className={`tt-statusPill ${pillClass}`}>{pillLabel}</span></td>
+                        <td style={{ textAlign: "center" }} className={`tt-rowTimer ${critical ? "critical" : ""}`}>{fmtTime(st.remaining)}</td>
+                        <td className="tt-actBtns" style={{ justifyContent: "center" }}>
+                          <button className="tt-b-start" disabled={disableStart} onClick={() => startSession(r.id)}>▶</button>
+                          <button className="tt-b-pause" disabled={disablePause} onClick={() => pauseSession(r.id)}>⏸</button>
+                          <button className="tt-b-ext" disabled={!canExtend} onClick={() => setExtendModal({ id: r.id })}>➕</button>
+                          <button className="tt-b-done" disabled={disableDone} onClick={() => completeSession(r.id)}>✓</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
 
-          {/* BOTTOM GRID */}
-          <div className="tt-bottomGrid">
-            <div className="tt-col">
-              <div className="tt-card">
-                <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
-                <div className="tt-cardBody" style={{ padding: 0 }}>
-                  <table className="tt-rotationTable">
-                    <tbody>
-                      {ROTATION.map(([day, subj], i) => (
-                        <tr key={day} className={i === todayIdx ? "today" : ""}><td><b>{day}</b></td><td>{subj}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-              <div className="tt-card">
-                <h3>ANALYTICS OVERVIEW</h3>
-                <div className="tt-analyticsGrid">
-                  {analytics.cells.slice(0, 2).map(([l, v]) => (
-                    <div key={l}><b>{v}</b>{l}</div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="tt-col">
-              <div className="tt-card">
-                <h3>EXAM COVERAGE</h3>
-                <div className="tt-cardBody">
-                  <ul className="tt-examCoverage">
-                    <li>UPSC ESE (Electrical)</li><li>RRB JE / SSE</li><li>MPSC Engineering Services</li><li>SSC CGL / CHSL / MTS</li><li>SSC JE</li><li>SSC GD</li><li>Railways NTPC / Group D</li>
-                  </ul>
-                </div>
-              </div>
-              <div className="tt-card">
-                <h3>TODAY&apos;S PROGRESS</h3>
-                <div className="tt-ringWrap">
-                  <canvas ref={ringRef} className="tt-ringCanvas" />
-                  <div className="tt-statList">
-                    <div>Studied: <b>{(liveProgress.studied / 60).toFixed(1)}h</b> / {(liveProgress.allocated / 60).toFixed(1)}h</div>
-                    <div>Completed: <b>{doneToday.length}</b></div>
-                    <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
-                    <div>Streak: <b>{streak}</b>d 🔥</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="tt-col">
-              <div className="tt-card">
-                <h3>GOLDEN RULES</h3>
-                <div className="tt-cardBody">
-                  <ul className="tt-goldenRules">
-                    <li>Be Consistent</li><li>Revise Regularly</li><li>Follow the Plan</li><li>Take Mock Tests</li><li>Avoid Distractions</li><li>Analyze &amp; Improve</li><li>Believe in Yourself</li>
-                  </ul>
-                </div>
-              </div>
-              <div className="tt-card tt-emailCard">
-                <h3>FIREBASE ENGINE SECURED 🛡️</h3>
-                <p>Google Auth + Email Password is enabled. Data is locked to your account and streams instantly in real-time across all your devices.</p>
-              </div>
-            </div>
-
-            <div className="tt-col">
-              <div className="tt-card">
-                <h3>CONSISTENCY HEATMAP (12 weeks)</h3>
-                <div className="tt-heatmapWrap">
-                  <div className="tt-heatmapGrid">
-                    {heatmapCells.map(({ key, count }) => {
-                      let cls = "tt-hcell";
-                      if (count >= 1 && count < 3) cls += " l1";
-                      else if (count >= 3 && count < 6) cls += " l2";
-                      else if (count >= 6 && count < 9) cls += " l3";
-                      else if (count >= 9) cls += " l4";
-                      return <div key={key} className={cls} title={`${key}: ${count} sessions`} />;
+              {/* PENDING MISSIONS (Now showing deducted remaining time) */}
+              {pending.length > 0 && (
+                <div className="tt-pendingBox">
+                  <h3>⚠ PENDING MISSIONS</h3>
+                  <div className="tt-pendingList">
+                    {pending.map((id) => {
+                      const r = ROWS.find((x) => x.id === id);
+                      if (!r) return null;
+                      const currentAlloc = sessions[id]?.durationAllocated ?? r.dur;
+                      return (
+                        <div key={id} className="tt-pendingItem">
+                          {r.icon} {r.act} <span style={{ color: "#999" }}>({currentAlloc}m)</span>
+                          <button onClick={() => startSession(id)}>Reschedule Now</button>
+                        </div>
+                      );
                     })}
                   </div>
-                  <div className="tt-heatmapLegend">
-                    Less <span className="tt-hcell" /> <span className="tt-hcell l1" /> <span className="tt-hcell l2" /> <span className="tt-hcell l3" /> <span className="tt-hcell l4" /> More
+                </div>
+              )}
+
+              {/* BOTTOM GRID */}
+              <div className="tt-bottomGrid">
+                <div className="tt-col">
+                  <div className="tt-card">
+                    <h3>SUBJECT FOCUS (WEEKLY ROTATION)</h3>
+                    <div className="tt-cardBody">
+                      <table className="tt-rotationTable">
+                        <tbody>
+                          {ROTATION.map(([day, subj], i) => (
+                            <tr key={day} className={i === todayIdx ? "today" : ""}><td><b>{day}</b></td><td>{subj}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div className="tt-card tt-analyticsCard">
+                    <h3>ANALYTICS OVERVIEW</h3>
+                    <div className="tt-analyticsGrid">
+                      {analytics.cells.slice(0, 2).map(([l, v]) => (
+                        <div key={l}><b>{v}</b>{l}</div>
+                      ))}
+                    </div>
                   </div>
                 </div>
-              </div>
-              <div className="tt-card">
-                <h3>TODAY&apos;S CHECKLIST</h3>
-                <div className="tt-checklist">
-                  {CHECKLIST_ITEMS.map((it) => (
-                    <label key={it}><input type="checkbox" checked={!!checklist[it]} onChange={(e) => toggleCheck(it, e.target.checked)} />{it}</label>
-                  ))}
+
+                <div className="tt-col">
+                  <div className="tt-card">
+                    <h3>EXAM COVERAGE</h3>
+                    <div className="tt-cardBody">
+                      <ul className="tt-examCoverage">
+                        <li>UPSC ESE (Electrical)</li><li>MPSC Engineering Services</li><li>SSC JE</li><li>RRB JE / SSE</li><li>SSC CGL / CHSL / MTS</li><li>SSC GD</li><li>Railways NTPC / Group D</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="tt-card">
+                    <h3>TODAY&apos;S PROGRESS</h3>
+                    <div className="tt-ringWrap">
+                      <canvas ref={ringRef} className="tt-ringCanvas" />
+                      <div className="tt-statList">
+                        <div>Studied: <b>{(liveProgress.studied / 60).toFixed(1)}h</b> / {(liveProgress.allocated / 60).toFixed(1)}h</div>
+                        <div>Completed: <b>{doneToday.length}</b></div>
+                        <div>Remaining: <b>{Math.max(totalFocus - doneToday.length, 0)}</b></div>
+                        <div>Streak: <b>{streak}</b>d 🔥</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="tt-col">
+                  <div className="tt-card">
+                    <h3>GOLDEN RULES</h3>
+                    <div className="tt-cardBody">
+                      <ul className="tt-goldenRules">
+                        <li>Be Consistent</li><li>Follow the Plan</li><li>Avoid Distractions</li><li>Revise Regularly</li><li>Take Mock Tests</li><li>Analyze &amp; Improve</li><li>Believe in Yourself</li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="tt-card tt-emailCard">
+                    <h3>FIREBASE ENGINE SECURED 🛡️</h3>
+                    <p>Google Auth + Email Password is enabled. Data is locked to your account and streams instantly in real-time across all your devices.</p>
+                  </div>
+                </div>
+
+                <div className="tt-col tt-motivPanel">
+                  <div className="tt-card" style={{ flex: "0 0 auto" }}>
+                    <h3>CONSISTENCY HEATMAP (12 weeks)</h3>
+                    <div className="tt-heatmapWrap">
+                      <div className="tt-heatmapGrid">
+                        {heatmapCells.map(({ key, count }) => {
+                          let cls = "tt-hcell";
+                          if (count >= 1 && count < 3) cls += " l1";
+                          else if (count >= 3 && count < 6) cls += " l2";
+                          else if (count >= 6 && count < 9) cls += " l3";
+                          else if (count >= 9) cls += " l4";
+                          return <div key={key} className={cls} title={`${key}: ${count} sessions`} />;
+                        })}
+                      </div>
+                      <div className="tt-heatmapLegend">
+                        Less <span className="tt-hcell" /> <span className="tt-hcell l1" /> <span className="tt-hcell l2" /> <span className="tt-hcell l3" /> <span className="tt-hcell l4" /> More
+                      </div>
+                    </div>
+                  </div>
+                  <div className="tt-card" style={{ flex: "0 0 auto" }}>
+                    <h3>TODAY&apos;S CHECKLIST</h3>
+                    <div className="tt-checklist">
+                      {CHECKLIST_ITEMS.map((it) => (
+                        <label key={it}><input type="checkbox" checked={!!checklist[it]} onChange={(e) => toggleCheck(it, e.target.checked)} />{it}</label>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="tt-rememberBox">REMEMBER<br />CONSISTENCY + DISCIPLINE + PATIENCE<br />=<br />🏆 SUCCESS</div>
                 </div>
               </div>
             </div>
           </div>
+          <div className="tt-footerQuote">FOCUS ON YOUR GOAL. DON&apos;T LOOK IN ANY DIRECTION BUT AHEAD. &nbsp;|&nbsp; YOUR HARD WORK WILL DEFINITELY PAY OFF. ★ ★ ★</div>
         </div>
-
-        <div className="tt-footerQuote">FOCUS ON YOUR GOAL. DON&apos;T LOOK IN ANY DIRECTION BUT AHEAD. &nbsp;|&nbsp; YOUR HARD WORK WILL DEFINITELY PAY OFF. ★ ★ ★</div>
       </div>
 
-      {/* EXTENSION MODAL — glass-morphism */}
+      {/* EXTENSION MODAL — SLEEK & ANIMATED (Restored to #1f2870 Colors) */}
       {extendModal && (() => {
         const row = ROWS.find(r => r.id === extendModal.id);
         const trades = ROWS.filter(r => isFocusRow(r) && r.id !== extendModal.id && sessions[r.id]?.status !== "completed" && sessions[r.id]?.remaining >= extendMins * 60);
         return (
-          <div className="tt-glassOverlay" onClick={() => setExtendModal(null)}>
-            <div className="tt-glassBox" onClick={(e) => e.stopPropagation()}>
-              <div className="tt-glassHead">
-                <div className="tt-glassIcon">{row?.icon || "⏱"}</div>
+          <div className="tt-extOverlay" onClick={() => setExtendModal(null)}>
+            <div className="tt-extBox" onClick={(e) => e.stopPropagation()}>
+              <div className="tt-extHead">
+                <div className="tt-extIcon">{row?.icon || "⏱"}</div>
                 <div>
-                  <div className="tt-glassEyebrow">Extend Session</div>
-                  <div className="tt-glassTitle">{row?.act}</div>
+                  <div className="tt-extEyebrow">Extend Session</div>
+                  <div className="tt-extTitle">{row?.act}</div>
                 </div>
-                <button className="tt-glassClose" onClick={() => setExtendModal(null)} aria-label="Close">×</button>
+                <button className="tt-extClose" onClick={() => setExtendModal(null)} aria-label="Close">×</button>
               </div>
 
-              <div className="tt-glassSection">
-                <div className="tt-glassLabel">Add extra minutes</div>
-                <div className="tt-glassChips">
+              <div className="tt-extSection">
+                <div className="tt-extLabel">Add extra minutes</div>
+                <div className="tt-extChips">
                   {[15, 30, 45, 60].map(m => (
-                    <button key={m} className={`tt-glassChip ${extendMins === m ? "active" : ""}`} onClick={() => setExtendMins(m)}>+{m}m</button>
+                    <button key={m} className={`tt-extChip ${extendMins === m ? "active" : ""}`} onClick={() => setExtendMins(m)}>+{m}m</button>
                   ))}
                 </div>
-                <div className="tt-glassStepper">
+                <div className="tt-extStepper">
                   <button onClick={() => setExtendMins(Math.max(1, extendMins - 5))} aria-label="Decrease">−</button>
-                  <div className="tt-glassStepperValue"><span>{extendMins}</span><small>min</small></div>
+                  <div className="tt-extStepperValue"><span>{extendMins}</span><small>min</small></div>
                   <button onClick={() => setExtendMins(extendMins + 5)} aria-label="Increase">+</button>
                 </div>
               </div>
 
-              <div className="tt-glassSection">
-                <div className="tt-glassLabel">Trade time from another session <span className="tt-glassOptional">(optional)</span></div>
-                <select className="tt-glassSelect" value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}>
+              <div className="tt-extSection">
+                <div className="tt-extLabel">Trade time from another session <span className="tt-extOptional">(optional)</span></div>
+                <select className="tt-extSelect" value={deductId} onChange={(e) => setDeductId(e.target.value === "none" ? "none" : Number(e.target.value))}>
                   <option value="none">— Add on top (no trade) —</option>
                   {trades.map(r => (
                     <option key={r.id} value={r.id}>{r.icon} {r.act} ({Math.floor(sessions[r.id].remaining / 60)}m available)</option>
                   ))}
                 </select>
-                <div className="tt-glassHint">
+                <div className="tt-extHint">
                   {deductId === 'none'
                     ? "This will push your schedule forward by " + extendMins + " min."
                     : "Time will be traded silently — logged for the mission report."}
                 </div>
               </div>
 
-              <div className="tt-glassActions">
-                <button className="tt-glassBtn ghost" onClick={() => setExtendModal(null)}>Cancel</button>
-                <button className="tt-glassBtn primary" onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }}>
+              <div className="tt-extActions">
+                <button className="tt-extBtn ghost" onClick={() => setExtendModal(null)}>Cancel</button>
+                <button className="tt-extBtn primary" onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }}>
                   Confirm +{extendMins}m
                 </button>
               </div>
@@ -945,255 +919,176 @@ function StudyTimetable({ user }: { user: User }) {
         );
       })()}
       
-      {/* PERFECT COMPACT, ANIMATED CSS */}
+      {/* ORIGINAL CSS WITH MAX-WIDTH FIX */}
       <style>{`
-        body, html { margin: 0; padding: 0; background: #f8fafc; overflow-x: hidden; }
-        .tt-root { font-family: 'Inter', sans-serif; width: 100%; min-height: 100vh; display: flex; flex-direction: column; opacity: 0; transform: translateY(10px); transition: opacity 0.5s ease, transform 0.5s ease; }
-        .tt-root.loaded { opacity: 1; transform: translateY(0); }
-        .tt-app { width: 100%; display: flex; flex-direction: column; }
+        .tt-root { background: #f4f6f8; font-family: 'Inter', sans-serif; min-height: 100vh; padding: 20px; }
+        .tt-scaleWrap { width: 100%; max-width: 100%; margin: 0 auto; } /* MAX-WIDTH FIXED FOR FULL SCREEN */
+        .tt-app { background: #fff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.05); padding: 20px; }
         
-        .tt-examStrip { display: flex; width: 100%; }
-        .tt-examBox { flex: 1; padding: 8px; text-align: center; color: #fff; cursor: pointer; transition: filter 0.2s, transform 0.2s; }
-        .tt-examBox:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        .tt-examStrip { display: flex; gap: 10px; margin-bottom: 15px; }
+        .tt-examBox { flex: 1; padding: 10px; text-align: center; border-radius: 8px; color: #fff; font-family: Oswald, sans-serif; cursor: pointer; position: relative; }
         .tt-examBox.ssc { background: #059669; }
         .tt-examBox.gate { background: #2563eb; }
         .tt-examBox.ese { background: #dc2626; }
-        .tt-examBox .tt-num { font-size: 18px; font-weight: 800; font-family: 'Oswald', sans-serif; letter-spacing: 1px; }
-        .tt-examBox .tt-lbl { font-size: 11px; font-weight: 700; margin-top: 2px; }
-        .tt-examBox .tt-sub { font-size: 10px; opacity: 0.8; }
-        
-        .tt-examEdit { position: absolute; top: 100%; left: 0; right: 0; background: white; padding: 8px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10; display: flex; gap: 5px; margin-top: 5px; }
-        .tt-examEdit input { flex: 1; padding: 4px; font-size: 11px; color: #111; border: 1px solid #ccc; border-radius: 4px; }
-        .tt-examEdit button { padding: 4px 8px; background: #151b4d; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .tt-examBox .tt-num { font-size: 24px; font-weight: 700; letter-spacing: 1px; }
+        .tt-examBox .tt-lbl { font-size: 14px; opacity: 0.9; }
+        .tt-examBox .tt-sub { font-size: 11px; opacity: 0.7; font-family: sans-serif; margin-top: 4px; }
+        .tt-examEdit { position: absolute; top: 100%; left: 0; right: 0; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10; display: flex; gap: 5px; margin-top: 5px; }
+        .tt-examEdit input { flex: 1; padding: 4px; font-size: 12px; }
+        .tt-examEdit button { padding: 4px 8px; background: #1f2870; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; }
 
-        .tt-header { width: 100%; margin-bottom: 15px; background: #151b4d; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
-        .tt-headerTop { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #fff; color: #111; border-bottom: 2px solid #151b4d; }
-        
-        .tt-rulesList { text-align: left; font-size: 11px; font-weight: 700; color: #334155; line-height: 1.5; }
-        .tt-rulesList span { color: #22c55e; margin-right: 6px; }
-        
-        .tt-titleBlock { text-align: center; flex: 2; }
-        .tt-titleBlock h1 { margin: 0 0 6px 0; font-size: 26px; font-family: 'Oswald', sans-serif; color: #151b4d; letter-spacing: 1px; }
-        .tt-examTags { font-size: 11px; font-weight: 800; display: inline-block; padding: 4px 12px; border-radius: 4px; background: #151b4d; color: #fff; margin-bottom: 5px; }
-        .tt-examTags b { color: #fff; margin: 0 4px; } 
-        
-        .tt-motto { background: #151b4d; color: #f2c14e; font-weight: bold; font-size: 12px; padding: 6px 0; letter-spacing: 2px; width: 100%; text-align: center; }
+        .tt-header { background: #1f2870; color: #fff; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 20px; box-shadow: inset 0 0 40px rgba(0,0,0,0.2); position: relative; overflow: hidden; }
+        .tt-headerTop { display: flex; justify-content: space-between; align-items: flex-start; }
+        .tt-brandIcon { font-size: 32px; margin-bottom: 10px; text-align: left; }
+        .tt-rulesList { text-align: left; font-size: 12px; line-height: 1.6; opacity: 0.85; font-family: monospace; }
+        .tt-rulesList span { color: #f0b429; margin-right: 6px; }
+        .tt-titleBlock h1 { margin: 0 0 10px 0; font-size: 36px; font-family: Oswald, sans-serif; letter-spacing: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); }
+        .tt-examTags { font-size: 13px; font-weight: bold; background: #fff; display: inline-block; padding: 4px 15px; border-radius: 20px; color: #333; margin-bottom: 15px; }
+        .tt-examTags b.blue { color: #2563eb; } .tt-examTags b.red { color: #dc2626; } .tt-examTags b.green { color: #059669; } .tt-examTags b.purple { color: #9333ea; } .tt-examTags b.orange { color: #ea580c; }
+        .tt-motto { font-size: 14px; font-weight: bold; color: #f0b429; letter-spacing: 2px; }
+        .tt-targetBlock { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 8px; text-align: center; font-size: 11px; font-weight: bold; line-height: 1.8; border: 1px solid rgba(255,255,255,0.2); }
+        .tt-targetBlock .t1 { color: #f87171; } .tt-targetBlock .t2 { color: #60a5fa; } .tt-targetBlock .t3 { color: #4ade80; }
+        .tt-liveRow { display: flex; justify-content: center; gap: 30px; margin: 20px 0 15px 0; align-items: center; }
+        .tt-greet { font-size: 18px; font-weight: bold; color: #fcd34d; }
+        .tt-clock { font-size: 24px; font-family: monospace; font-weight: bold; background: rgba(0,0,0,0.2); padding: 6px 15px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.1); }
+        .tt-quoteBar { background: #f0b429; color: #111; padding: 8px; font-size: 14px; font-style: italic; font-weight: 600; border-radius: 4px; margin: 0 auto; max-width: 800px; margin-bottom: 15px; }
 
-        .tt-targetBlock { text-align: right; font-size: 10px; font-weight: 800; line-height: 1.5; flex: 1; }
-        .tt-targetBlock .t1 { color: #dc2626; } .tt-targetBlock .t2 { color: #2563eb; } .tt-targetBlock .t3 { color: #059669; }
-
-        .tt-liveRow { display: flex; justify-content: space-between; align-items: center; background: #0f143a; color: #fff; padding: 6px 20px; }
-        .tt-greet { font-size: 12px; font-weight: 700; }
-        .tt-clock { font-size: 12px; font-weight: 700; font-family: monospace; color: #f2c14e; }
-
-        .tt-quoteBar { text-align: center; padding: 8px; font-size: 12px; font-style: italic; color: #94a3b8; font-weight: 500; }
-        
-        .tt-syncIndicatorWrap { display: flex; justify-content: flex-end; padding: 0 20px 10px; }
-        .tt-syncIndicator { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; padding: 4px 12px; border-radius: 20px; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: bold; }
-        .tt-syncDot { background: #22c55e; width: 6px; height: 6px; border-radius: 50%; }
-
-        .tt-mainGrid { padding: 0 20px; display: flex; flex-direction: column; align-items: center; }
-        .tt-table { width: 100%; max-width: 1600px; border-collapse: collapse; font-size: 12px; margin-bottom: 15px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
-        .tt-table th { background: #151b4d; color: #fff; padding: 8px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 1px; border-bottom: none; }
-        .tt-table td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; color: #334155; transition: background 0.2s ease, transform 0.2s ease; }
-        
-        .tt-table tbody tr:hover:not(.tt-rowRUN):not(.tt-rowPAUSE) { background: #f8fafc; transform: scale(1.002); box-shadow: 0 2px 10px rgba(0,0,0,0.02); z-index: 2; position: relative; }
-        
-        .tt-rowLIFE td { color: #94a3b8; font-style: italic; }
-        .tt-rowLIFE b { font-style: normal; color: #64748b; }
-        .tt-rowRUN td { background: #fffbeb; }
+        .tt-mainGrid { display: flex; gap: 20px; }
+        .tt-leftCol { flex: 1; }
+        .tt-table { width: 100%; border-collapse: separate; border-spacing: 0 4px; font-size: 14px; }
+        .tt-table th { background: #e2e8f0; color: #475569; padding: 10px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .tt-table th:first-child { border-radius: 6px 0 0 6px; } .tt-table th:last-child { border-radius: 0 6px 6px 0; }
+        .tt-table td { padding: 12px 10px; background: #fff; border-top: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+        .tt-table td:first-child { border-left: 1px solid #f1f5f9; border-radius: 6px 0 0 6px; }
+        .tt-table td:last-child { border-right: 1px solid #f1f5f9; border-radius: 0 6px 6px 0; }
+        .tt-rowLIFE td { background: #f8fafc; color: #64748b; }
+        .tt-rowRUN td { background: #fffbeb; border-color: #fde68a; }
+        .tt-rowRUN td:first-child { border-left: 4px solid #f59e0b; }
         .tt-rowPAUSE td { background: #fef2f2; }
-        .tt-rowDONE td { background: #dcfce7; opacity: 0.85; text-decoration: line-through; color: #166534; }
-        .tt-rowDONE td.tt-actBtns { text-decoration: none; }
-        .tt-rowIcon { font-size: 14px; text-align: center; width: 30px; }
-        
-        .tt-statusPill { font-size: 9px; font-weight: bold; padding: 3px 6px; border-radius: 4px; border: 1px solid currentColor; }
-        .tt-st-notstarted { color: #64748b; background: #f1f5f9; border-color: #cbd5e1; }
-        .tt-st-running { color: #ea580c; background: #fff7ed; border-color: #fdba74; animation: pulse 2s infinite; }
-        .tt-st-paused { color: #ef4444; background: #fef2f2; border-color: #fca5a5; }
-        .tt-st-completed { color: #16a34a; background: #f0fdf4; border-color: #86efac; }
+        .tt-rowPAUSE td:first-child { border-left: 4px solid #ef4444; }
+        .tt-rowDONE td { background: #f0fdf4; opacity: 0.8; }
+        .tt-rowDONE td:first-child { border-left: 4px solid #22c55e; }
+        .tt-rowIcon { font-size: 18px; text-align: center; }
+        .tt-statusPill { font-size: 10px; font-weight: bold; padding: 4px 8px; border-radius: 12px; }
+        .tt-st-notstarted { background: #f1f5f9; color: #64748b; }
+        .tt-st-running { background: #f59e0b; color: #fff; animation: pulse 2s infinite; }
+        .tt-st-paused { background: #ef4444; color: #fff; }
+        .tt-st-completed { background: #22c55e; color: #fff; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
         
-        .tt-rowTimer { font-family: monospace; font-size: 13px; font-weight: bold; color: #1e293b; }
+        .tt-rowTimer { font-family: monospace; font-size: 16px; font-weight: bold; color: #333; }
         .tt-rowTimer.critical { color: #ef4444; animation: blink 1s infinite; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
         
         .tt-actBtns { display: flex; gap: 4px; }
-        .tt-actBtns button { width: 24px; height: 24px; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #fff; transition: transform 0.15s, filter 0.15s; }
-        .tt-actBtns button:hover:not(:disabled) { transform: scale(1.1); filter: brightness(1.1); }
+        .tt-actBtns button { width: 28px; height: 28px; border: none; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: 0.2s; }
         .tt-actBtns button:disabled { opacity: 0.3; cursor: not-allowed; }
-        .tt-b-start { background: #2563eb; } .tt-b-pause { background: #ea580c; } .tt-b-ext { background: #8b5cf6; } .tt-b-done { background: #22c55e; }
+        .tt-b-start { background: #1f2870; color: #fff; } .tt-b-start:not(:disabled):hover { background: #2a3699; }
+        .tt-b-pause { background: #f59e0b; color: #fff; } .tt-b-pause:not(:disabled):hover { background: #d97706; }
+        .tt-b-ext { background: #8b5cf6; color: #fff; } .tt-b-ext:not(:disabled):hover { background: #7c3aed; }
+        .tt-b-done { background: #22c55e; color: #fff; } .tt-b-done:not(:disabled):hover { background: #16a34a; }
 
-        .tt-pendingBox { width: 100%; max-width: 1600px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 10px 15px; margin-bottom: 15px; display: flex; align-items: center; gap: 15px; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.1); }
-        .tt-pendingBox h3 { margin: 0; font-size: 11px; color: #d97706; text-transform: uppercase; white-space: nowrap; }
-        .tt-pendingList { display: flex; flex-wrap: wrap; gap: 8px; flex: 1; }
-        .tt-pendingItem { background: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; border: 1px solid #fcd34d; display: flex; align-items: center; gap: 6px; color: #334155; }
-        .tt-pendingItem button { background: #ea580c; color: white; border: none; padding: 3px 6px; border-radius: 3px; cursor: pointer; font-size: 9px; font-weight: bold; transition: background 0.2s; }
-        .tt-pendingItem button:hover { background: #c2410c; }
-        
-        .tt-bottomGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; align-items: start; width: 100%; max-width: 1600px; }
-        .tt-card { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; background: #fff; margin-bottom: 15px; transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s; }
-        .tt-card:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.06); }
-        .tt-card h3 { background: #f8fafc; margin: 0; padding: 8px 12px; font-size: 11px; color: #475569; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.5px; }
-        .tt-cardBody { padding: 12px; font-size: 11px; color: #334155; }
+        .tt-pendingBox { background: #fff5f5; border: 1px solid #feb2b2; border-radius: 8px; padding: 15px; margin-top: 20px; }
+        .tt-pendingBox h3 { margin: 0 0 10px 0; font-size: 14px; color: #c53030; }
+        .tt-pendingList { display: flex; flex-wrap: wrap; gap: 10px; }
+        .tt-pendingItem { background: #fff; padding: 8px 12px; border-radius: 6px; font-size: 13px; font-weight: bold; border: 1px solid #fed7d7; display: flex; align-items: center; gap: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tt-pendingItem button { background: #c53030; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .tt-pendingItem button:hover { background: #9b2c2c; }
+        .tt-pendingEmpty { font-size: 13px; color: #718096; font-style: italic; }
+
+        .tt-bottomGrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-top: 20px; }
+        .tt-col { display: flex; flex-direction: column; gap: 20px; }
+        .tt-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.02); overflow: hidden; display: flex; flex-direction: column; }
+        .tt-card h3 { background: #f8fafc; margin: 0; padding: 12px; font-size: 13px; color: #475569; border-bottom: 1px solid #e2e8f0; letter-spacing: 0.5px; }
+        .tt-cardBody { padding: 15px; font-size: 13px; flex: 1; }
         
         .tt-rotationTable { width: 100%; border-collapse: collapse; }
-        .tt-rotationTable td { padding: 6px 12px; border-bottom: 1px solid #f1f5f9; }
-        .tt-rotationTable tr.today td { background: #fef3c7; color: #b45309; font-weight: bold; }
+        .tt-rotationTable td { padding: 6px; border-bottom: 1px solid #f1f5f9; }
+        .tt-rotationTable tr.today td { background: #eff6ff; color: #1d4ed8; font-weight: bold; }
         
-        .tt-analyticsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 12px; }
-        .tt-analyticsGrid > div { background: #f8fafc; padding: 10px 8px; border-radius: 6px; text-align: center; font-size: 9px; color: #64748b; font-weight: bold; border: 1px solid #e2e8f0; }
-        .tt-analyticsGrid b { display: block; font-size: 16px; color: #151b4d; margin-bottom: 2px; font-family: Oswald, sans-serif; }
+        .tt-analyticsGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 15px; }
+        .tt-analyticsGrid > div { background: #f8fafc; padding: 10px; border-radius: 6px; text-align: center; font-size: 10px; color: #64748b; font-weight: bold; }
+        .tt-analyticsGrid b { display: block; font-size: 16px; color: #1f2870; margin-bottom: 2px; font-family: Oswald, sans-serif; }
         
-        .tt-examCoverage { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-        .tt-examCoverage li { color: #334155; font-weight: 600; font-size: 10px; }
-        .tt-examCoverage li:before { content: "✓"; color: #22c55e; font-weight: bold; display: inline-block; width: 1.2em; }
+        .tt-examCoverage { list-style: none; padding: 0; margin: 0; }
+        .tt-examCoverage li { padding: 6px 0; border-bottom: 1px dashed #e2e8f0; color: #334155; font-weight: 500; }
+        .tt-examCoverage li:before { content: "•"; color: #3b82f6; font-weight: bold; display: inline-block; width: 1em; }
         
-        .tt-ringWrap { display: flex; align-items: center; justify-content: center; padding: 15px; gap: 15px; }
-        .tt-ringCanvas { width: 80px; height: 80px; }
-        .tt-statList { font-size: 11px; color: #475569; line-height: 1.6; }
-        .tt-statList b { color: #151b4d; font-size: 13px; }
+        .tt-ringWrap { display: flex; align-items: center; padding: 15px; gap: 15px; }
+        .tt-ringCanvas { width: 84px; height: 84px; }
+        .tt-statList { font-size: 13px; color: #475569; line-height: 1.6; }
+        .tt-statList b { color: #1f2870; font-size: 15px; }
         
-        .tt-goldenRules { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
-        .tt-goldenRules li { font-weight: 600; color: #151b4d; font-size: 10px; }
-        .tt-goldenRules li:before { content: "★"; color: #f2c14e; margin-right: 6px; }
+        .tt-goldenRules { list-style: none; padding: 0; margin: 0; }
+        .tt-goldenRules li { padding: 5px 0; font-weight: 600; color: #1f2870; }
+        .tt-goldenRules li:before { content: "★"; color: #f59e0b; margin-right: 6px; }
         
-        .tt-emailCard { border-color: #e2e8f0; }
-        .tt-emailCard h3 { background: #f8fafc; color: #475569; }
-        .tt-emailCard p { padding: 12px; font-size: 10px; color: #64748b; margin: 0; line-height: 1.5; }
+        .tt-emailCard { background: #f0fdf4; border-color: #bbf7d0; }
+        .tt-emailCard h3 { background: #dcfce7; color: #166534; border-bottom-color: #bbf7d0; }
+        .tt-emailCard p { padding: 15px; font-size: 12px; color: #166534; margin: 0; line-height: 1.5; font-weight: 500; }
         
-        .tt-heatmapWrap { padding: 12px; }
-        .tt-heatmapGrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; margin-bottom: 8px; }
-        .tt-hcell { aspect-ratio: 1; background: #e2e8f0; border-radius: 2px; }
-        .tt-hcell.l1 { background: #bbf7d0; } .tt-hcell.l2 { background: #4ade80; } .tt-hcell.l3 { background: #16a34a; } .tt-hcell.l4 { background: #14532d; }
-        .tt-heatmapLegend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 9px; color: #64748b; }
-        .tt-heatmapLegend .tt-hcell { width: 8px; height: 8px; }
+        .tt-heatmapWrap { padding: 15px; }
+        .tt-heatmapGrid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 2px; margin-bottom: 10px; }
+        .tt-hcell { aspect-ratio: 1; background: #ebedf0; border-radius: 2px; }
+        .tt-hcell.l1 { background: #9be9a8; } .tt-hcell.l2 { background: #40c463; } .tt-hcell.l3 { background: #30a14e; } .tt-hcell.l4 { background: #216e39; }
+        .tt-heatmapLegend { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 10px; color: #64748b; }
+        .tt-heatmapLegend .tt-hcell { width: 10px; height: 10px; }
         
-        .tt-checklist { padding: 12px; display: flex; flex-direction: column; gap: 6px; }
-        .tt-checklist label { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #334155; cursor: pointer; font-weight: 500; }
-        .tt-checklist input { width: 12px; height: 12px; cursor: pointer; accent-color: #22c55e; }
+        .tt-checklist { padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .tt-checklist label { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #334155; cursor: pointer; }
+        .tt-checklist input { width: 16px; height: 16px; cursor: pointer; }
         
-        .tt-footerQuote { width: 100%; background: #151b4d; color: #94a3b8; text-align: center; padding: 10px 0; font-size: 10px; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; margin-top: auto; }
+        .tt-rememberBox { background: #1f2870; color: #fff; text-align: center; padding: 15px; border-radius: 8px; font-weight: bold; font-size: 13px; line-height: 1.6; border: 2px solid #f0b429; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+        .tt-footerQuote { text-align: center; margin-top: 30px; font-size: 12px; font-weight: bold; color: #94a3b8; letter-spacing: 1px; }
 
-        /* ===== ANIMATED GLASS EXTENSION MODAL ===== */
-        @keyframes ttGlassIn { from { opacity: 0; transform: translateY(14px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
-        @keyframes ttFadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .tt-glassOverlay {
-          position: fixed; inset: 0; z-index: 9999;
-          display: flex; justify-content: center; align-items: center; padding: 16px;
-          background: radial-gradient(ellipse at center, rgba(21,27,77,0.55), rgba(0,0,0,0.75));
-          backdrop-filter: blur(14px) saturate(140%);
-          animation: ttFadeIn .2s ease-out;
-        }
-        .tt-glassBox {
-          width: 100%; max-width: 420px;
-          background: linear-gradient(160deg, rgba(255,255,255,0.95), rgba(255,255,255,0.85));
-          backdrop-filter: blur(24px) saturate(160%);
-          border: 1px solid rgba(255,255,255,0.8);
-          border-radius: 20px;
-          padding: 22px;
-          box-shadow: 0 24px 50px rgba(15,20,50,0.3), inset 0 1px 0 rgba(255,255,255,0.7);
-          color: #1b1e2b;
-          animation: ttGlassIn .25s cubic-bezier(.2,.9,.3,1.2);
-        }
-        .tt-glassHead { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-        .tt-glassIcon {
-          width: 40px; height: 40px; border-radius: 12px; flex: 0 0 auto;
-          display: flex; align-items: center; justify-content: center; font-size: 20px;
-          background: linear-gradient(145deg, #f2c14e, #e8862e);
-          box-shadow: 0 4px 10px rgba(232,134,46,0.3), inset 0 1px 0 rgba(255,255,255,0.4);
-        }
-        .tt-glassEyebrow { font-size: 9px; font-weight: 800; letter-spacing: 1px; color: #6b7280; text-transform: uppercase; }
-        .tt-glassTitle { font-size: 16px; font-weight: 900; color: #151b4d; line-height: 1.2; max-width: 260px; }
-        .tt-glassClose {
-          margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
-          border: 1px solid rgba(21,27,77,0.1); background: rgba(255,255,255,0.6);
-          font-size: 18px; line-height: 1; color: #4b5563; cursor: pointer;
-          transition: transform .15s, background .15s;
-        }
-        .tt-glassClose:hover { background: #fff; transform: rotate(90deg); }
-
-        .tt-glassSection { margin-bottom: 14px; }
-        .tt-glassLabel { font-size: 11px; font-weight: 800; color: #374151; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 8px; }
-        .tt-glassOptional { color: #9ca3af; font-weight: 500; text-transform: none; letter-spacing: 0; }
-
-        .tt-glassChips { display: flex; gap: 6px; margin-bottom: 8px; }
-        .tt-glassChip {
-          flex: 1; padding: 8px 0; font-size: 12px; font-weight: 700;
-          background: rgba(255,255,255,0.6); color: #4b5563;
-          border: 1px solid rgba(21,27,77,0.1); border-radius: 10px;
-          cursor: pointer; transition: all .15s;
-        }
-        .tt-glassChip:hover { background: #fff; transform: translateY(-1px); box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
-        .tt-glassChip.active {
-          background: linear-gradient(145deg, #151b4d, #1f2870);
-          color: #f2c14e; border-color: #151b4d;
-          box-shadow: 0 6px 12px rgba(21,27,77,0.25);
-        }
-
-        .tt-glassStepper {
-          display: flex; align-items: center; justify-content: space-between;
-          background: rgba(255,255,255,0.6); border: 1px solid rgba(21,27,77,0.1);
-          border-radius: 12px; padding: 4px;
-        }
-        .tt-glassStepper button {
-          width: 36px; height: 36px; border-radius: 8px; border: none;
-          background: transparent; font-size: 20px; font-weight: 700; color: #151b4d;
-          cursor: pointer; transition: background .15s;
-        }
-        .tt-glassStepper button:hover { background: rgba(21,27,77,0.06); }
-        .tt-glassStepperValue { display: flex; align-items: baseline; gap: 3px; }
-        .tt-glassStepperValue span { font-size: 22px; font-weight: 900; color: #151b4d; }
-        .tt-glassStepperValue small { font-size: 10px; color: #6b7280; font-weight: 700; }
-
-        .tt-glassSelect {
-          width: 100%; padding: 10px 12px;
-          background: rgba(255,255,255,0.8); color: #1b1e2b;
-          border: 1px solid rgba(21,27,77,0.15); border-radius: 10px;
-          font-size: 12px; font-weight: 700; outline: none; cursor: pointer;
-          transition: border-color .15s, box-shadow .15s;
-        }
-        .tt-glassSelect:focus { border-color: #151b4d; box-shadow: 0 0 0 3px rgba(21,27,77,0.1); background: #fff; }
-        .tt-glassHint { margin-top: 6px; font-size: 10px; color: #6b7280; font-style: italic; }
-
-        .tt-glassActions { display: flex; gap: 8px; margin-top: 18px; }
-        .tt-glassBtn {
-          flex: 1; padding: 10px 14px; border-radius: 10px; border: none;
-          font-weight: 800; font-size: 12px; cursor: pointer; transition: all .15s;
-          letter-spacing: .3px; text-transform: uppercase;
-        }
-        .tt-glassBtn.ghost { background: rgba(255,255,255,0.6); color: #4b5563; border: 1px solid rgba(21,27,77,0.1); }
-        .tt-glassBtn.ghost:hover { background: #fff; color: #1b1e2b; box-shadow: 0 4px 8px rgba(0,0,0,0.05); }
-        .tt-glassBtn.primary {
-          background: linear-gradient(145deg, #151b4d, #1f2870); color: #fff;
-          box-shadow: 0 6px 16px rgba(21,27,77,0.3), inset 0 1px 0 rgba(255,255,255,0.15);
-        }
-        .tt-glassBtn.primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(21,27,77,0.4); }
-
-        /* MINIMIZED TIMER CSS */
-        .tt-timerMini { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #151b4d; color: white; padding: 8px 24px; border-radius: 50px; display: flex; align-items: center; gap: 12px; box-shadow: 0 8px 20px rgba(0,0,0,0.25); z-index: 9998; cursor: pointer; border: 2px solid #f2c14e; transition: transform 0.2s; }
+        .tt-timerMini { position: fixed; top: 15px; left: 50%; transform: translateX(-50%); background: #1f2870; color: white; padding: 10px 30px; border-radius: 50px; display: flex; align-items: center; gap: 15px; box-shadow: 0 8px 20px rgba(0,0,0,0.3); z-index: 9998; cursor: pointer; border: 2px solid #f0b429; transition: transform 0.2s; }
         .tt-timerMini:active { transform: translateX(-50%) scale(0.95); }
-        .tt-timerMini .tt-tmIcon { font-size: 18px; }
-        .tt-timerMini .tt-tmSubj { font-size: 14px; font-weight: 700; color: #f2c14e; max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .tt-tmBigSolid { background: #ea580c; color: #ffffff; padding: 4px 12px; border-radius: 6px; font-size: 18px; font-weight: 900; font-family: monospace; letter-spacing: 1px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); margin-left: 8px; }
-        
-        /* FULL TIMER MODAL CSS */
-        .tt-timerModal { position: fixed; bottom: 30px; right: 30px; width: 340px; background: #fff; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); padding: 20px; border: 2px solid #151b4d; z-index: 9998; display: flex; flex-direction: column; gap: 12px; transition: 0.3s; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .tt-timerModal.done { border-color: #22c55e; box-shadow: 0 10px 40px rgba(34,197,94,0.15); }
-        .tt-timerModal.warn { border-color: #ef4444; box-shadow: 0 10px 40px rgba(239,68,68,0.15); }
+        .tt-timerMini .tt-tmIcon { font-size: 20px; }
+        .tt-timerMini .tt-tmSubj { font-size: 16px; font-weight: 600; color: #fcd34d; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tt-tmBigSolid { background: #ea580c; color: #ffffff; padding: 6px 14px; border-radius: 8px; font-size: 22px; font-weight: 900; font-family: monospace; letter-spacing: 1px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); margin-left: 10px; }
+        .tt-tmCloseBtn { background: #e5e7eb; color: #4b5563; border: none; padding: 6px 12px; border-radius: 12px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .tt-tmCloseBtn:hover { background: #d1d5db; color: #111; }
         .tt-tmHead { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; }
-        .tt-tmHead > div { display: flex; align-items: center; gap: 8px; }
-        .tt-tmIcon { font-size: 20px; }
-        .tt-tmTitle { font-weight: 900; font-size: 14px; color: #151b4d; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
-        .tt-tmBig { font-size: 56px; font-family: monospace; font-weight: 900; text-align: center; color: #111; line-height: 1; letter-spacing: -2px; margin: 8px 0; }
-        .tt-tmHint { font-size: 11px; text-align: center; color: #64748b; background: #f8fafc; padding: 6px; border-radius: 6px; }
-        .tt-tmBtns { display: flex; gap: 8px; margin-top: 4px; }
-        .tt-tmBtns button { flex: 1; padding: 10px 0; border: none; border-radius: 8px; font-weight: 800; font-size: 12px; cursor: pointer; transition: all 0.2s; color: white; text-transform: uppercase; }
-        .tt-tmBtns button:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-        .tt-tmBtns button:disabled { opacity: 0.5; cursor: not-allowed; }
-        .tt-tmCloseBtn { background: #f1f5f9; color: #475569; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; transition: 0.2s; }
-        .tt-tmCloseBtn:hover { background: #e2e8f0; color: #1e293b; }
+        .tt-tmHead > div { display: flex; align-items: center; gap: 10px; }
+
+        /* ===== SLEEK EXTENSION MODAL (#1f2870 Colors) ===== */
+        @keyframes ttFadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes ttSlideUp { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        .tt-extOverlay { position: fixed; inset: 0; z-index: 9999; display: flex; justify-content: center; align-items: center; padding: 16px; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); animation: ttFadeIn .2s ease-out; }
+        .tt-extBox { width: 100%; max-width: 440px; background: #fff; border-radius: 20px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); color: #1e293b; font-family: 'Inter', sans-serif; animation: ttSlideUp .25s cubic-bezier(.2,.9,.3,1.2); }
+        .tt-extHead { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+        .tt-extIcon { width: 44px; height: 44px; border-radius: 12px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 22px; background: #1f2870; color: #fff; box-shadow: 0 4px 10px rgba(31,40,112,0.3); }
+        .tt-extEyebrow { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #64748b; text-transform: uppercase; }
+        .tt-extTitle { font-size: 16px; font-weight: 800; color: #1f2870; line-height: 1.2; max-width: 260px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tt-extClose { margin-left: auto; width: 30px; height: 30px; border-radius: 50%; border: none; background: #f1f5f9; font-size: 18px; color: #64748b; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+        .tt-extClose:hover { background: #e2e8f0; color: #1e293b; }
+
+        .tt-extSection { margin-bottom: 20px; }
+        .tt-extLabel { font-size: 12px; font-weight: 800; color: #334155; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+        .tt-extOptional { color: #94a3b8; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+        .tt-extChips { display: flex; gap: 8px; margin-bottom: 10px; }
+        .tt-extChip { flex: 1; padding: 10px 0; font-size: 13px; font-weight: 700; background: #f8fafc; color: #475569; border: 2px solid #e2e8f0; border-radius: 10px; cursor: pointer; transition: 0.2s; }
+        .tt-extChip:hover { background: #f1f5f9; }
+        .tt-extChip.active { background: #eff6ff; color: #1f2870; border-color: #1f2870; }
+
+        .tt-extStepper { display: flex; align-items: center; justify-content: space-between; background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px; padding: 6px; }
+        .tt-extStepper button { width: 40px; height: 40px; border-radius: 8px; border: none; background: #e2e8f0; font-size: 20px; font-weight: 700; color: #1f2870; cursor: pointer; transition: 0.2s; }
+        .tt-extStepper button:hover { background: #cbd5e1; }
+        .tt-extStepperValue { display: flex; align-items: baseline; gap: 4px; }
+        .tt-extStepperValue span { font-size: 24px; font-weight: 900; color: #1f2870; }
+        .tt-extStepperValue small { font-size: 12px; color: #64748b; font-weight: 700; }
+
+        .tt-extSelect { width: 100%; padding: 12px 14px; background: #f8fafc; color: #1e293b; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 13px; font-weight: 700; outline: none; cursor: pointer; transition: 0.2s; }
+        .tt-extSelect:focus { border-color: #1f2870; background: #fff; }
+        .tt-extHint { margin-top: 8px; font-size: 11px; color: #64748b; font-style: italic; }
+
+        .tt-extActions { display: flex; gap: 10px; margin-top: 24px; }
+        .tt-extBtn { flex: 1; padding: 14px 16px; border-radius: 10px; border: none; font-weight: 800; font-size: 14px; cursor: pointer; transition: 0.2s; }
+        .tt-extBtn.ghost { background: #f1f5f9; color: #475569; }
+        .tt-extBtn.ghost:hover { background: #e2e8f0; color: #1e293b; }
+        .tt-extBtn.primary { background: #1f2870; color: #fff; box-shadow: 0 6px 16px rgba(31,40,112,0.25); }
+        .tt-extBtn.primary:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(31,40,112,0.35); }
       `}</style>
     </div>
   );
