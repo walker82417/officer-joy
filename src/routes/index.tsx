@@ -5,7 +5,7 @@ import { onAuthStateChanged, signInWithPopup, User, signInWithEmailAndPassword, 
 import { db, auth, googleProvider } from "../firebaseConfig";
 
 // === GOOGLE SHEETS SYNC CONFIG ===
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbyFbz6Gf4hcGZfDv0aXKS9wZVm9HobFagMVK6ieL2Y0Iy_NB0vTmztA06_0nmNb0hGl/exec";
+const WEB_APP_URL = "PASTE_YOUR_APPS_SCRIPT_EXEC_URL_HERE";
 const SHARED_SECRET = "rohan-secure-2026";
 
 export const Route = createFileRoute("/")({
@@ -233,6 +233,7 @@ function StudyTimetable({ user }: { user: User }) {
   const [extendModal, setExtendModal] = useState<{ id: number } | null>(null);
   const [extendMins, setExtendMins] = useState<number>(15);
   const [deductId, setDeductId] = useState<number | 'none'>('none');
+  const [extendComment, setExtendComment] = useState<string>('');
   const [timerMinimized, setTimerMinimized] = useState(false);
 
   const ringRef = useRef<HTMLCanvasElement | null>(null);
@@ -497,10 +498,15 @@ function StudyTimetable({ user }: { user: User }) {
     setTimerMinimized(false);
   };
 
-  const extendSession = (id: number, minutes: number, targetDeductId: number | 'none') => {
+  const extendSession = (id: number, minutes: number, targetDeductId: number | 'none', comment: string = '') => {
     if (minutes <= 0) return;
     const st = sessions[id];
     const reopened = st.status === "completed";
+
+    // Guard: never allow a session to deduct time from itself (this was the bug
+    // causing extensions to silently cancel out when the trade dropdown had a
+    // stale selection left over from a previous extend on a different row).
+    if (targetDeductId === id) targetDeductId = 'none';
 
     const nextSessions = { ...sessions };
     const remaining = (reopened ? 0 : st.remaining) + minutes * 60;
@@ -543,6 +549,7 @@ function StudyTimetable({ user }: { user: User }) {
       minutes,
       deductedFromRowId: targetDeductId === 'none' ? null : targetDeductId,
       deductedFrom,
+      comment: comment.trim(),
       reopened,
       ts: Date.now(),
     };
@@ -748,7 +755,7 @@ function StudyTimetable({ user }: { user: User }) {
                         <td className="tt-actBtns">
                           <button className="tt-b-start" disabled={disableStart} onClick={() => startSession(r.id)}>▶</button>
                           <button className="tt-b-pause" disabled={disablePause} onClick={() => pauseSession(r.id)}>⏸</button>
-                          <button className="tt-b-ext" disabled={!canExtend} onClick={() => setExtendModal({ id: r.id })}>➕</button>
+                          <button className="tt-b-ext" disabled={!canExtend} onClick={() => { setDeductId('none'); setExtendComment(''); setExtendModal({ id: r.id }); }}>➕</button>
                           <button className="tt-b-done" disabled={disableDone} onClick={() => completeSession(r.id)}>✓</button>
                         </td>
                       </tr>
@@ -922,9 +929,21 @@ function StudyTimetable({ user }: { user: User }) {
                 </div>
               </div>
 
+              <div className="tt-glassSection">
+                <div className="tt-glassLabel">Comment <span className="tt-glassOptional">(optional, shows in your daily email)</span></div>
+                <textarea
+                  className="tt-glassTextarea"
+                  value={extendComment}
+                  onChange={(e) => setExtendComment(e.target.value)}
+                  placeholder="e.g. Got stuck on relay coordination numericals"
+                  rows={2}
+                  maxLength={200}
+                />
+              </div>
+
               <div className="tt-glassActions">
                 <button className="tt-glassBtn ghost" onClick={() => setExtendModal(null)}>Cancel</button>
-                <button className="tt-glassBtn primary" onClick={() => { extendSession(extendModal.id, extendMins, deductId); setExtendModal(null); setDeductId('none'); }}>
+                <button className="tt-glassBtn primary" onClick={() => { extendSession(extendModal.id, extendMins, deductId, extendComment); setExtendModal(null); setDeductId('none'); setExtendComment(''); }}>
                   Confirm +{extendMins}m
                 </button>
               </div>
@@ -979,7 +998,7 @@ function StudyTimetable({ user }: { user: User }) {
               ) : (
                 <button className="tt-b-start" onClick={() => startSession(active.id)}>▶ Resume</button>
               )}
-              <button className="tt-b-ext" disabled={!canExtend} onClick={() => setExtendModal({ id: active.id })}>➕ Extend</button>
+              <button className="tt-b-ext" disabled={!canExtend} onClick={() => { setDeductId('none'); setExtendComment(''); setExtendModal({ id: active.id }); }}>➕ Extend</button>
               <button className="tt-b-done" disabled={st.remaining > 10 * 60} onClick={() => completeSession(active.id)}>✓ Complete</button>
             </div>
           </div>
@@ -1090,6 +1109,15 @@ function StudyTimetable({ user }: { user: User }) {
         }
         .tt-glassSelect:focus { border-color: #151b4d; background: #fff; }
         .tt-glassHint { margin-top: 8px; font-size: 11px; color: #6b7280; font-style: italic; }
+
+        .tt-glassTextarea {
+          width: 100%; padding: 10px 12px; box-sizing: border-box;
+          background: rgba(255,255,255,0.7); color: #1b1e2b;
+          border: 1px solid rgba(21,27,77,0.15); border-radius: 12px;
+          font-size: 13px; font-family: inherit; outline: none; resize: vertical;
+          transition: border-color .15s, background .15s;
+        }
+        .tt-glassTextarea:focus { border-color: #151b4d; background: #fff; }
 
         .tt-glassActions { display: flex; gap: 10px; margin-top: 20px; }
         .tt-glassBtn {
